@@ -1,0 +1,7 @@
+# Type Definitions
+
+This directory will contain TypeScript type definitions:
+- userTypes.ts
+- projectTypes.ts
+- chapterTypes.ts
+- contextTypes.ts

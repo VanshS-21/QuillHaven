@@ -1,0 +1,7 @@
+# Authentication Components
+
+This directory will contain authentication-related components:
+- LoginForm
+- RegisterForm  
+- PasswordReset
+- AuthGuard

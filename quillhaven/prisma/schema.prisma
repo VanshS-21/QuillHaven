@@ -1,0 +1,293 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User model for authentication and account management
+model User {
+  id                   String              @id @default(cuid())
+  email                String              @unique
+  passwordHash         String
+  firstName            String?
+  lastName             String?
+  subscriptionTier     SubscriptionTier    @default(FREE)
+  writingPreferences   Json?               // Stores WritingPreferences as JSON
+  emailVerified        DateTime?
+  emailVerificationToken String?
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+  
+  // Relations
+  projects             Project[]
+  sessions             Session[]
+  
+  @@map("users")
+}
+
+// Session model for JWT token management
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+}
+
+// Project model for writing projects
+model Project {
+  id               String        @id @default(cuid())
+  userId           String
+  title            String
+  description      String?
+  genre            String
+  targetLength     Int           // Target word count
+  currentWordCount Int           @default(0)
+  status           ProjectStatus @default(DRAFT)
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  
+  // Relations
+  user             User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chapters         Chapter[]
+  characters       Character[]
+  plotThreads      PlotThread[]
+  worldElements    WorldElement[]
+  timelineEvents   TimelineEvent[]
+  exports          Export[]
+  
+  @@map("projects")
+}
+
+// Chapter model for individual chapters
+model Chapter {
+  id               String           @id @default(cuid())
+  projectId        String
+  title            String
+  content          String           @default("")
+  wordCount        Int              @default(0)
+  order            Int
+  status           ChapterStatus    @default(DRAFT)
+  generationParams Json?            // Stores GenerationParams as JSON
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  
+  // Relations
+  project          Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versions         ChapterVersion[]
+  
+  @@unique([projectId, order])
+  @@map("chapters")
+}
+
+// Chapter version model for version history
+model ChapterVersion {
+  id        String   @id @default(cuid())
+  chapterId String
+  content   String
+  wordCount Int
+  version   Int
+  createdAt DateTime @default(now())
+  
+  // Relations
+  chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  
+  @@unique([chapterId, version])
+  @@map("chapter_versions")
+}
+
+// Character model for character database
+model Character {
+  id              String        @id @default(cuid())
+  projectId       String
+  name            String
+  description     String        @default("")
+  role            CharacterRole @default(MINOR)
+  developmentArc  String?
+  firstAppearance String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  project         Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  relationships   Relationship[] @relation("CharacterRelationships")
+  relatedTo       Relationship[] @relation("RelatedCharacterRelationships")
+  plotThreads     PlotThread[]  @relation("PlotThreadCharacters")
+  
+  @@map("characters")
+}
+
+// Relationship model for character relationships
+model Relationship {
+  id            String    @id @default(cuid())
+  characterId   String
+  relatedId     String
+  type          String    // e.g., "friend", "enemy", "family", "romantic"
+  description   String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  character     Character @relation("CharacterRelationships", fields: [characterId], references: [id], onDelete: Cascade)
+  relatedCharacter Character @relation("RelatedCharacterRelationships", fields: [relatedId], references: [id], onDelete: Cascade)
+  
+  @@unique([characterId, relatedId, type])
+  @@map("relationships")
+}
+
+// Plot thread model for plot tracking
+model PlotThread {
+  id                String           @id @default(cuid())
+  projectId         String
+  title             String
+  description       String           @default("")
+  status            PlotThreadStatus @default(INTRODUCED)
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  
+  // Relations
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  relatedCharacters Character[]      @relation("PlotThreadCharacters")
+  
+  @@map("plot_threads")
+}
+
+// World element model for world-building
+model WorldElement {
+  id            String           @id @default(cuid())
+  projectId     String
+  type          WorldElementType
+  name          String
+  description   String           @default("")
+  significance  String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  
+  // Relations
+  project       Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  relatedElements WorldElementRelation[] @relation("WorldElementRelations")
+  relatedTo     WorldElementRelation[] @relation("RelatedWorldElementRelations")
+  
+  @@map("world_elements")
+}
+
+// World element relation model for connecting world elements
+model WorldElementRelation {
+  id              String       @id @default(cuid())
+  elementId       String
+  relatedId       String
+  relationType    String       // e.g., "located_in", "part_of", "connected_to"
+  description     String?
+  createdAt       DateTime     @default(now())
+  
+  // Relations
+  element         WorldElement @relation("WorldElementRelations", fields: [elementId], references: [id], onDelete: Cascade)
+  relatedElement  WorldElement @relation("RelatedWorldElementRelations", fields: [relatedId], references: [id], onDelete: Cascade)
+  
+  @@unique([elementId, relatedId, relationType])
+  @@map("world_element_relations")
+}
+
+// Timeline event model for chronological tracking
+model TimelineEvent {
+  id          String   @id @default(cuid())
+  projectId   String
+  title       String
+  description String?
+  eventDate   String   // Flexible date format for fictional timelines
+  importance  Int      @default(1) // 1-5 scale
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("timeline_events")
+}
+
+// Export model for tracking export history
+model Export {
+  id          String     @id @default(cuid())
+  projectId   String
+  format      ExportFormat
+  filename    String
+  fileSize    Int?
+  downloadUrl String?
+  expiresAt   DateTime?
+  status      ExportStatus @default(PENDING)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@map("exports")
+}
+
+// Enums
+enum SubscriptionTier {
+  FREE
+  PREMIUM
+  PROFESSIONAL
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum ChapterStatus {
+  DRAFT
+  GENERATED
+  EDITED
+  FINAL
+}
+
+enum CharacterRole {
+  PROTAGONIST
+  ANTAGONIST
+  SUPPORTING
+  MINOR
+}
+
+enum PlotThreadStatus {
+  INTRODUCED
+  DEVELOPING
+  CLIMAX
+  RESOLVED
+}
+
+enum WorldElementType {
+  LOCATION
+  RULE
+  CULTURE
+  HISTORY
+}
+
+enum ExportFormat {
+  DOCX
+  PDF
+  TXT
+  EPUB
+}
+
+enum ExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}

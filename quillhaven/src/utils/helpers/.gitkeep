@@ -1,0 +1,7 @@
+# Helper Functions
+
+This directory will contain general helper functions:
+- arrayHelpers.ts
+- stringHelpers.ts
+- objectHelpers.ts
+- asyncHelpers.ts

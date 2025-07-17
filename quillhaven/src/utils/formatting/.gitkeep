@@ -1,0 +1,6 @@
+# Formatting Utilities
+
+This directory will contain formatting functions:
+- textFormatting.ts
+- dateFormatting.ts
+- numberFormatting.ts

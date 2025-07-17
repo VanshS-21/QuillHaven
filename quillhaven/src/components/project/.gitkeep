@@ -1,0 +1,7 @@
+# Project Management Components
+
+This directory will contain project management components:
+- ProjectDashboard
+- ProjectCreator
+- ProjectSettings
+- ProjectExporter

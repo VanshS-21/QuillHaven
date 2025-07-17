@@ -1,0 +1,477 @@
+---
+title: "1. Main User Flow - Core Journey"
+---
+graph TD
+    A[User arrives at QuillHaven] --> B{New User?}
+    B -->|Yes| C[Sign Up Flow]
+    B -->|No| D[Login Flow]
+    
+    C --> E[Enter Email & Password]
+    E --> F[Email Verification]
+    F --> G[Profile Setup]
+    G --> H[Writing Preferences]
+    H --> I[Dashboard]
+    
+    D --> J[Enter Credentials]
+    J --> K{Valid?}
+    K -->|No| L[Show Error & Retry]
+    K -->|Yes| I[Dashboard]
+    L --> J
+    
+    I --> M{Action Choice}
+    M -->|Create New Project| N[Project Creation Flow]
+    M -->|Continue Existing| O[Project Selection]
+    M -->|Export Work| P[Export Flow]
+    M -->|Account Settings| Q[Settings Flow]
+    
+    N --> R[Enter Project Details]
+    R --> S[Set Genre & Target Length]
+    S --> T[Add Story Context]
+    T --> U[Create Project]
+    U --> V[Chapter Interface]
+    
+    O --> W[Select Project]
+    W --> X[Project Dashboard]
+    X --> Y{Action Choice}
+    Y -->|New Chapter| V
+    Y -->|Edit Chapter| Z[Chapter Editor]
+    Y -->|View Progress| AA[Progress View]
+    Y -->|Export Project| P
+    
+    V --> BB[Chapter Creation Interface]
+    BB --> CC[Input Story Context]
+    CC --> DD[Set Chapter Parameters]
+    DD --> EE[Generate Chapter]
+    EE --> FF[Review Generated Content]
+    FF --> GG{Satisfied?}
+    GG -->|No| HH[Regenerate/Edit]
+    GG -->|Yes| II[Save Chapter]
+    HH --> FF
+    II --> JJ[Update Progress]
+    JJ --> KK{Continue?}
+    KK -->|Yes| V
+    KK -->|No| I
+    
+    Z --> LL[Edit Content]
+    LL --> MM[Save Changes]
+    MM --> NN[Version Control]
+    NN --> II
+    
+    P --> OO[Select Export Format]
+    OO --> PP[Choose Content]
+    PP --> QQ[Generate Export]
+    QQ --> RR[Download File]
+    
+    style A fill:#e1f5fe
+    style I fill:#f3e5f5
+    style V fill:#e8f5e8
+    style EE fill:#fff3e0
+
+---
+title: "2. AI Chapter Generation Flow"
+---
+graph TD
+    A[User Clicks Generate Chapter] --> B[Load Context Manager]
+    B --> C[Retrieve Project Context]
+    C --> D[Character Database]
+    C --> E[Plot Threads]
+    C --> F[World-Building]
+    C --> G[Previous Chapters]
+    
+    D --> H[Context Compilation]
+    E --> H
+    F --> H
+    G --> H
+    
+    H --> I[User Input Processing]
+    I --> J[Chapter Length Setting]
+    I --> K[Tone/Style Selection]
+    I --> L[Specific Prompts]
+    
+    J --> M[AI Generation Engine]
+    K --> M
+    L --> M
+    
+    M --> N{Generation Successful?}
+    N -->|No| O[Error Handler]
+    N -->|Yes| P[Content Post-Processing]
+    
+    O --> Q[Display Error Message]
+    Q --> R[Offer Retry Options]
+    R --> S{User Action}
+    S -->|Retry| M
+    S -->|Adjust Parameters| I
+    S -->|Manual Write| T[Manual Editor]
+    
+    P --> U[Format Content]
+    U --> V[Context Consistency Check]
+    V --> W[Display Generated Chapter]
+    W --> X[Auto-Save Draft]
+    
+    X --> Y{User Feedback}
+    Y -->|Accept| Z[Save Final Version]
+    Y -->|Regenerate| AA[Regeneration Options]
+    Y -->|Edit| BB[Edit Mode]
+    
+    AA --> CC[Partial Regeneration]
+    AA --> DD[Style Adjustment]
+    AA --> EE[Complete Regeneration]
+    
+    CC --> M
+    DD --> M
+    EE --> M
+    
+    BB --> FF[Manual Editing]
+    FF --> GG[Save Edits]
+    GG --> Z
+    
+    Z --> HH[Update Context Database]
+    HH --> II[Update Progress Tracking]
+    II --> JJ[Chapter Complete]
+    
+    style A fill:#e3f2fd
+    style M fill:#fff3e0
+    style Z fill:#e8f5e8
+
+---
+title: "3. Context Management System Flow"
+---
+graph TD
+    A[Project Creation] --> B[Initialize Context Database]
+    B --> C[Character Database]
+    B --> D[Plot Thread Tracker]
+    B --> E[World-Building Database]
+    B --> F[Timeline Manager]
+    
+    C --> G[Character Profiles]
+    G --> H[Names & Descriptions]
+    G --> I[Relationships]
+    G --> J[Development Arcs]
+    
+    D --> K[Plot Points]
+    K --> L[Conflicts]
+    K --> M[Resolutions]
+    K --> N[Subplots]
+    
+    E --> O[Locations]
+    E --> P[Rules/Laws]
+    E --> Q[History]
+    E --> R[Cultural Elements]
+    
+    F --> S[Story Timeline]
+    S --> T[Chapter Sequence]
+    S --> U[Character Ages]
+    S --> V[Event Chronology]
+    
+    G --> W[Context Updates]
+    K --> W
+    O --> W
+    S --> W
+    
+    W --> X[New Chapter Creation]
+    X --> Y[AI Context Injection]
+    Y --> Z[Generate with Context]
+    Z --> AA[Content Analysis]
+    
+    AA --> BB[Extract New Context]
+    BB --> CC[Character Updates]
+    BB --> DD[Plot Progression]
+    BB --> EE[World Additions]
+    BB --> FF[Timeline Updates]
+    
+    CC --> G
+    DD --> K
+    EE --> O
+    FF --> S
+    
+    AA --> GG[Consistency Check]
+    GG --> HH{Conflicts Detected?}
+    HH -->|Yes| II[Flag Inconsistencies]
+    HH -->|No| JJ[Approve Updates]
+    
+    II --> KK[User Notification]
+    KK --> LL[Resolution Options]
+    LL --> MM[Manual Override]
+    LL --> NN[Auto-Correct]
+    LL --> OO[Regenerate Section]
+    
+    MM --> JJ
+    NN --> JJ
+    OO --> Z
+    
+    style B fill:#e1f5fe
+    style W fill:#fff3e0
+    style GG fill:#ffebee
+
+---
+title: "4. Project Management Flow"
+---
+graph TD
+    A[Dashboard] --> B{Project Action}
+    B -->|New Project| C[Project Creation Wizard]
+    B -->|Existing Project| D[Project Selection]
+    B -->|Project Settings| E[Settings Panel]
+    
+    C --> F[Basic Information]
+    F --> G[Title & Description]
+    F --> H[Genre Selection]
+    F --> I[Target Length]
+    
+    G --> J[Story Setup]
+    H --> J
+    I --> J
+    
+    J --> K[Character Creation]
+    J --> L[World-Building]
+    J --> M[Plot Outline]
+    
+    K --> N[Initialize Project]
+    L --> N
+    M --> N
+    
+    N --> O[Create Chapter Structure]
+    O --> P[Project Dashboard]
+    
+    D --> Q[Project List]
+    Q --> R[Select Project]
+    R --> S[Load Project Data]
+    S --> T[Project Dashboard]
+    
+    P --> U[Chapter Management]
+    T --> U
+    
+    U --> V{Chapter Action}
+    V -->|New Chapter| W[Chapter Creator]
+    V -->|Edit Chapter| X[Chapter Editor]
+    V -->|Reorder Chapters| Y[Chapter Organizer]
+    V -->|Delete Chapter| Z[Deletion Confirmation]
+    
+    W --> AA[Chapter Creation Flow]
+    X --> BB[Editing Interface]
+    Y --> CC[Drag & Drop Interface]
+    Z --> DD[Confirm Deletion]
+    
+    BB --> EE[Version Control]
+    EE --> FF[Save Changes]
+    FF --> GG[Update Project]
+    
+    CC --> HH[Update Chapter Order]
+    HH --> GG
+    
+    DD --> II[Remove Chapter]
+    II --> GG
+    
+    AA --> JJ[Save New Chapter]
+    JJ --> GG
+    
+    GG --> KK[Refresh Dashboard]
+    KK --> LL[Update Progress]
+    LL --> MM[Auto-Save Project]
+    
+    E --> NN[Project Settings]
+    NN --> OO[Export Settings]
+    NN --> PP[Privacy Settings]
+    NN --> QQ[Backup Settings]
+    
+    style C fill:#e8f5e8
+    style U fill:#f3e5f5
+    style GG fill:#fff3e0
+
+---
+title: "5. User Account & Authentication Flow"
+---
+graph TD
+    A[Landing Page] --> B{User Status}
+    B -->|New User| C[Registration Flow]
+    B -->|Returning User| D[Login Flow]
+    B -->|Forgot Password| E[Password Recovery]
+    
+    C --> F[Email Input]
+    F --> G[Password Creation]
+    G --> H[Password Confirmation]
+    H --> I[Terms Acceptance]
+    I --> J[Submit Registration]
+    
+    J --> K[Email Verification]
+    K --> L[Send Verification Email]
+    L --> M[User Checks Email]
+    M --> N[Click Verification Link]
+    N --> O[Account Activation]
+    
+    O --> P[Profile Setup]
+    P --> Q[Writing Preferences]
+    Q --> R[Experience Level]
+    R --> S[Genre Preferences]
+    S --> T[Complete Registration]
+    
+    D --> U[Email Input]
+    U --> V[Password Input]
+    V --> W[Login Attempt]
+    W --> X{Credentials Valid?}
+    X -->|No| Y[Error Message]
+    X -->|Yes| Z[Session Creation]
+    
+    Y --> AA[Retry Counter]
+    AA --> BB{Max Attempts?}
+    BB -->|Yes| CC[Account Lockout]
+    BB -->|No| U
+    
+    CC --> DD[Lockout Timer]
+    DD --> EE[Send Security Email]
+    EE --> U
+    
+    Z --> FF[Load User Data]
+    FF --> GG[Dashboard Access]
+    
+    E --> HH[Email Input]
+    HH --> II[Send Reset Email]
+    II --> JJ[Reset Link Sent]
+    JJ --> KK[User Clicks Link]
+    KK --> LL[Reset Form]
+    LL --> MM[New Password]
+    MM --> NN[Confirm Password]
+    NN --> OO[Update Password]
+    OO --> PP[Password Updated]
+    PP --> D
+    
+    GG --> QQ[Session Management]
+    QQ --> RR{Session Active?}
+    RR -->|Yes| SS[Continue Session]
+    RR -->|No| TT[Session Timeout]
+    
+    TT --> UU[Auto-Logout]
+    UU --> VV[Redirect to Login]
+    
+    SS --> WW[Activity Monitoring]
+    WW --> XX[Auto-Save Progress]
+    XX --> YY[Extend Session]
+    
+    style C fill:#e8f5e8
+    style Z fill:#f3e5f5
+    style QQ fill:#fff3e0
+
+---
+title: "6. Export & Publishing Flow"
+---
+graph TD
+    A[Export Request] --> B[Project Selection]
+    B --> C{Export Scope}
+    C -->|Single Chapter| D[Chapter Selection]
+    C -->|Multiple Chapters| E[Chapter Range]
+    C -->|Complete Project| F[Full Project]
+    D --> G[Format Selection]
+    E --> G
+    F --> G
+    G --> H{Format Type}
+    H -->|DOCX| I[Word Processing]
+    H -->|PDF| J[PDF Generation]
+    H -->|TXT| K[Plain Text]
+    H -->|EPUB| L[E-book Format]
+    I --> M[Apply Word Formatting]
+    J --> N[Apply PDF Styling]
+    K --> O[Text Extraction]
+    L --> P[E-book Compilation]
+    M --> Q[Generate Document]
+    N --> Q
+    O --> Q
+    P --> Q
+    Q --> R[Quality Check]
+    R --> S{Export Valid?}
+    S -->|No| T[Error Handler]
+    S -->|Yes| U[File Preparation]
+    T --> V[Display Error]
+    V --> W[Retry Options]
+    W --> X{User Action}
+    X -->|Retry| G
+    X -->|Change Format| H
+    X -->|Cancel| Y[Cancel Export]
+    U --> Z[Metadata Addition]
+    Z --> AA[Author Information]
+    Z --> BB[Creation Date]
+    Z --> CC[Version Info]
+    AA --> DD[File Compilation]
+    BB --> DD
+    CC --> DD
+    DD --> EE[Download Preparation]
+    EE --> FF[Generate Download Link]
+    FF --> GG[Present Download]
+    GG --> HH[User Downloads]
+    HH --> II[Log Export Activity]
+    II --> JJ[Update Usage Statistics]
+    JJ --> KK[Export Complete]
+    
+    style A fill:#e1f5fe
+    style Q fill:#fff3e0
+    style GG fill:#e8f5e8
+
+---
+title: "7. Error Handling & Recovery Flow"
+---
+graph TD
+    A[System Operation] --> B{Error Detected?}
+    B -->|No| C[Normal Flow]
+    B -->|Yes| D[Error Classification]
+    
+    D --> E{Error Type}
+    E -->|Network| F[Network Error Handler]
+    E -->|AI Generation| G[AI Error Handler]
+    E -->|Database| H[Database Error Handler]
+    E -->|User Input| I[Validation Error Handler]
+    E -->|System| J[System Error Handler]
+    
+    F --> K[Connection Retry]
+    K --> L{Retry Successful?}
+    L -->|Yes| M[Resume Operation]
+    L -->|No| N[Offline Mode]
+    
+    G --> O[AI Service Check]
+    O --> P{Service Available?}
+    P -->|Yes| Q[Alternative Generation]
+    P -->|No| R[Manual Writing Mode]
+    
+    H --> S[Database Reconnection]
+    S --> T{Connection Restored?}
+    T -->|Yes| U[Sync Data]
+    T -->|No| V[Local Storage Mode]
+    
+    I --> W[Input Validation]
+    W --> X[Error Message Display]
+    X --> Y[Correction Guidance]
+    Y --> Z[User Correction]
+    
+    J --> AA[System Diagnostics]
+    AA --> BB[Log Error Details]
+    BB --> CC[Escalate to Support]
+    
+    N --> DD[Cache Available Content]
+    R --> EE[Provide Writing Tools]
+    V --> FF[Local Save Warning]
+    
+    DD --> GG[Sync When Online]
+    EE --> HH[Suggest Alternatives]
+    FF --> II[Data Recovery Options]
+    
+    M --> JJ[Success Notification]
+    Q --> KK[Generation Complete]
+    U --> LL[Data Synchronized]
+    Z --> MM[Validation Passed]
+    
+    CC --> NN[Support Ticket]
+    NN --> OO[User Notification]
+    OO --> PP[Workaround Suggestions]
+    
+    GG --> QQ[Resume Normal Flow]
+    HH --> RR[Continue Writing]
+    II --> SS[Recovery Success]
+    
+    JJ --> C
+    KK --> C
+    LL --> C
+    MM --> C
+    QQ --> C
+    RR --> C
+    SS --> C
+    
+    style D fill:#ffebee
+    style E fill:#fff3e0
+    style C fill:#e8f5e8

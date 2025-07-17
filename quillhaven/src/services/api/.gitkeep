@@ -1,0 +1,7 @@
+# API Services
+
+This directory will contain API service functions:
+- projectService.ts
+- chapterService.ts
+- contextService.ts
+- userService.ts
