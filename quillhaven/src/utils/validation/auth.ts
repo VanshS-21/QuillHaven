@@ -104,36 +104,49 @@ export function validatePassword(password: string): ValidationResult {
   if (!password) {
     errors.push('Password is required');
   } else {
-    if (password.length < 6) {
-      errors.push('Password must be at least 6 characters long');
+    // Check minimum length
+    if (password.length < 8) {
+      errors.push('Password must be at least 8 characters long');
     }
 
     if (password.length > 128) {
       errors.push('Password is too long (maximum 128 characters)');
     }
 
-    // More lenient validation - just require some complexity
-    let complexityScore = 0;
-    
-    if (/[a-z]/.test(password)) complexityScore++;
-    if (/[A-Z]/.test(password)) complexityScore++;
-    if (/\d/.test(password)) complexityScore++;
-    if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) complexityScore++;
-
-    if (complexityScore < 2) {
-      errors.push('Password must contain at least two of: lowercase letters, uppercase letters, numbers, or special characters');
+    // Require all character types
+    if (!/[a-z]/.test(password)) {
+      errors.push('Password must contain at least one lowercase letter');
     }
 
-    // Check for very common weak passwords only
-    const veryCommonPasswords = [
+    if (!/[A-Z]/.test(password)) {
+      errors.push('Password must contain at least one uppercase letter');
+    }
+
+    if (!/\d/.test(password)) {
+      errors.push('Password must contain at least one number');
+    }
+
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      errors.push('Password must contain at least one special character');
+    }
+
+    // Check for common weak passwords
+    const commonPasswords = [
       'password',
+      'password123',
       '123456',
       '123456789',
       'qwerty',
       'abc123',
+      'password1',
+      'admin',
+      'letmein',
+      'welcome',
+      'monkey',
+      'dragon',
     ];
 
-    if (veryCommonPasswords.includes(password.toLowerCase())) {
+    if (commonPasswords.includes(password.toLowerCase())) {
       errors.push('Password is too common. Please choose a stronger password');
     }
   }

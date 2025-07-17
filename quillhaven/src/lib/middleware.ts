@@ -9,10 +9,10 @@ export interface AuthenticatedRequest extends NextRequest {
 /**
  * Authentication middleware for API routes
  */
-export function withAuth(
-  handler: (req: AuthenticatedRequest) => Promise<NextResponse>
+export function withAuth<T extends any[]>(
+  handler: (req: AuthenticatedRequest, ...args: T) => Promise<NextResponse>
 ) {
-  return async (req: NextRequest): Promise<NextResponse> => {
+  return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
     try {
       // Get token from Authorization header
       const authHeader = req.headers.get('authorization');
@@ -40,7 +40,7 @@ export function withAuth(
       (req as AuthenticatedRequest).user = user;
 
       // Call the handler
-      return handler(req as AuthenticatedRequest);
+      return handler(req as AuthenticatedRequest, ...args);
     } catch (error) {
       console.error('Authentication middleware error:', error);
       return NextResponse.json(
@@ -93,8 +93,8 @@ interface RateLimitConfig {
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function withRateLimit(config: RateLimitConfig) {
-  return function (handler: (req: NextRequest) => Promise<NextResponse>) {
-    return async (req: NextRequest): Promise<NextResponse> => {
+  return function <T extends any[]>(handler: (req: NextRequest, ...args: T) => Promise<NextResponse>) {
+    return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
       try {
         // Get client identifier (IP address)
         const clientId =
@@ -153,7 +153,7 @@ export function withRateLimit(config: RateLimitConfig) {
         rateLimitEntry.count++;
 
         // Call the handler
-        const response = await handler(req);
+        const response = await handler(req, ...args);
 
         // Add rate limit headers to response
         response.headers.set(
@@ -173,7 +173,7 @@ export function withRateLimit(config: RateLimitConfig) {
       } catch (error) {
         console.error('Rate limiting middleware error:', error);
         // Continue without rate limiting on error
-        return handler(req);
+        return handler(req, ...args);
       }
     };
   };
