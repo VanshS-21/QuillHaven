@@ -1,0 +1,27 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "loginUser": "Vansh",
+  "loginPassword": "2401010107",
+  "executionArgs": {
+    "projectName": "QuillHaven",
+    "projectPath": "F:\\QuillHaven",
+    "testIds": [
+      "TC001",
+      "TC002",
+      "TC003",
+      "TC004",
+      "TC005",
+      "TC015",
+      "TC016",
+      "TC018"
+    ],
+    "additionalInstruction": "Final verification test. The authentication system appears to be working based on server logs. Test with the correct password reset route at /auth/reset-password instead of /reset-password.",
+    "envs": {
+      "API_KEY": "sk-user-SD3k5_inw4qHl_7Qkx027JVA9EbkZs__q_tEtdGpVK5KD4b1zvcJjsJyLAM1DTk_aKGnY69GYPkun6mBr5VP2DPIc4zmxdEPZluXEI0_SPehA48jA__hoe5xc9IyoKosQtI"
+    }
+  },
+  "proxy": "http://3a76b992-4ca2-429c-bfae-d7f3efacce1e:2O8jCyHUIS3OdEWJEj8RxxErrQV9UK8b@tun.testsprite.com:8080"
+}

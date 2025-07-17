@@ -1,0 +1,149 @@
+{
+  "tech_stack": [
+    "Next.js 15",
+    "TypeScript",
+    "React 19",
+    "Tailwind CSS",
+    "Prisma ORM",
+    "PostgreSQL",
+    "JWT",
+    "bcryptjs",
+    "React Hook Form",
+    "Zod",
+    "Jest",
+    "Docker",
+    "Radix UI",
+    "Husky",
+    "ESLint",
+    "Prettier"
+  ],
+  "features": [
+    {
+      "name": "Database Schema",
+      "description": "Complete Prisma database schema with models for users, projects, chapters, characters, plot threads, world elements, and exports",
+      "files": [
+        "quillhaven/prisma/schema.prisma",
+        "quillhaven/prisma/seed.ts",
+        "quillhaven/src/lib/prisma.ts",
+        "quillhaven/src/lib/database.ts"
+      ]
+    },
+    {
+      "name": "Authentication Backend",
+      "description": "Complete authentication system with JWT tokens, password hashing, email verification, and password reset functionality",
+      "files": [
+        "quillhaven/src/lib/auth.ts",
+        "quillhaven/src/app/api/auth/login/route.ts",
+        "quillhaven/src/app/api/auth/register/route.ts",
+        "quillhaven/src/app/api/auth/logout/route.ts",
+        "quillhaven/src/app/api/auth/me/route.ts",
+        "quillhaven/src/app/api/auth/forgot-password/route.ts",
+        "quillhaven/src/app/api/auth/reset-password/route.ts",
+        "quillhaven/src/app/api/auth/verify-email/route.ts",
+        "quillhaven/src/app/api/auth/refresh/route.ts"
+      ]
+    },
+    {
+      "name": "Authentication Frontend Components",
+      "description": "React components for user authentication including login, register, password reset forms and auth context management",
+      "files": [
+        "quillhaven/src/components/auth/LoginForm.tsx",
+        "quillhaven/src/components/auth/RegisterForm.tsx",
+        "quillhaven/src/components/auth/PasswordReset.tsx",
+        "quillhaven/src/components/auth/AuthContext.tsx",
+        "quillhaven/src/components/auth/AuthGuard.tsx",
+        "quillhaven/src/components/auth/AuthDemo.tsx",
+        "quillhaven/src/components/auth/index.ts"
+      ]
+    },
+    {
+      "name": "Authentication Service",
+      "description": "Frontend service layer for handling authentication API calls and token management",
+      "files": [
+        "quillhaven/src/services/authService.ts",
+        "quillhaven/src/hooks/useAuth.ts"
+      ]
+    },
+    {
+      "name": "UI Components",
+      "description": "Reusable UI components built with Radix UI and Tailwind CSS",
+      "files": [
+        "quillhaven/src/components/ui/button.tsx",
+        "quillhaven/src/components/ui/card.tsx",
+        "quillhaven/src/components/ui/form.tsx",
+        "quillhaven/src/components/ui/input.tsx",
+        "quillhaven/src/components/ui/label.tsx"
+      ]
+    },
+    {
+      "name": "Validation System",
+      "description": "Input validation and sanitization utilities using Zod schemas",
+      "files": [
+        "quillhaven/src/utils/validation/auth.ts"
+      ]
+    },
+    {
+      "name": "Middleware System",
+      "description": "API middleware for rate limiting, CORS, validation, and authentication",
+      "files": [
+        "quillhaven/src/lib/middleware.ts"
+      ]
+    },
+    {
+      "name": "Type Definitions",
+      "description": "TypeScript type definitions for authentication and database models",
+      "files": [
+        "quillhaven/src/types/auth.ts",
+        "quillhaven/src/types/database.ts",
+        "quillhaven/src/types/jest-dom.d.ts"
+      ]
+    },
+    {
+      "name": "Email Service",
+      "description": "Email service integration for authentication flows",
+      "files": [
+        "quillhaven/src/lib/email.ts"
+      ]
+    },
+    {
+      "name": "Utility Functions",
+      "description": "Common utility functions and helpers",
+      "files": [
+        "quillhaven/src/lib/utils.ts"
+      ]
+    },
+    {
+      "name": "Health Check API",
+      "description": "API endpoint for system health monitoring",
+      "files": [
+        "quillhaven/src/app/api/health/route.ts"
+      ]
+    },
+    {
+      "name": "Testing Setup",
+      "description": "Jest testing configuration and authentication tests",
+      "files": [
+        "quillhaven/jest.config.js",
+        "quillhaven/jest.setup.js",
+        "quillhaven/src/lib/__tests__/auth.test.ts",
+        "quillhaven/src/components/auth/__tests__/",
+        "quillhaven/src/utils/validation/__tests__/"
+      ]
+    },
+    {
+      "name": "Development Environment",
+      "description": "Docker containers, database setup, and development tooling",
+      "files": [
+        "quillhaven/docker-compose.yml",
+        "quillhaven/docker/",
+        "quillhaven/.env.example",
+        "quillhaven/package.json",
+        "quillhaven/tsconfig.json",
+        "quillhaven/next.config.ts",
+        "quillhaven/tailwindcss.config.js",
+        "quillhaven/eslint.config.mjs",
+        "quillhaven/.prettierrc"
+      ]
+    }
+  ]
+}
