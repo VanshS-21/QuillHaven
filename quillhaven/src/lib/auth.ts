@@ -77,6 +77,13 @@ export function generateSecureToken(): string {
 }
 
 /**
+ * Generate a 6-digit verification code
+ */
+export function generateVerificationCode(): string {
+  return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
  * Register a new user
  */
 export async function registerUser(
@@ -101,8 +108,8 @@ export async function registerUser(
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Generate email verification token
-    const emailVerificationToken = generateSecureToken();
+    // Generate email verification code (6-digit)
+    const emailVerificationToken = generateVerificationCode();
 
     // Create user
     const user = await prisma.user.create({
