@@ -32,6 +32,9 @@ model User {
   dataDeletionRequests DataDeletionRequest[]
   exportRecords        ExportRecord[]
   
+  @@index([email])
+  @@index([subscriptionTier])
+  @@index([createdAt])
   @@map("users")
 }
 
@@ -46,6 +49,8 @@ model Session {
   // Relations
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  @@index([userId])
+  @@index([expiresAt])
   @@map("sessions")
 }
 
@@ -71,6 +76,10 @@ model Project {
   timelineEvents   TimelineEvent[]
   exports          Export[]
   
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([updatedAt])
   @@map("projects")
 }
 
@@ -92,6 +101,10 @@ model Chapter {
   versions         ChapterVersion[]
   
   @@unique([projectId, order])
+  @@index([projectId])
+  @@index([status])
+  @@index([order])
+  @@index([updatedAt])
   @@map("chapters")
 }
 
@@ -108,6 +121,8 @@ model ChapterVersion {
   chapter   Chapter  @relation(fields: [chapterId], references: [id], onDelete: Cascade)
   
   @@unique([chapterId, version])
+  @@index([chapterId])
+  @@index([createdAt])
   @@map("chapter_versions")
 }
 
@@ -129,6 +144,9 @@ model Character {
   relatedTo       Relationship[] @relation("RelatedCharacterRelationships")
   plotThreads     PlotThread[]  @relation("PlotThreadCharacters")
   
+  @@index([projectId])
+  @@index([role])
+  @@index([name])
   @@map("characters")
 }
 
@@ -147,6 +165,9 @@ model Relationship {
   relatedCharacter Character @relation("RelatedCharacterRelationships", fields: [relatedId], references: [id], onDelete: Cascade)
   
   @@unique([characterId, relatedId, type])
+  @@index([characterId])
+  @@index([relatedId])
+  @@index([type])
   @@map("relationships")
 }
 
@@ -164,6 +185,8 @@ model PlotThread {
   project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   relatedCharacters Character[]      @relation("PlotThreadCharacters")
   
+  @@index([projectId])
+  @@index([status])
   @@map("plot_threads")
 }
 
@@ -183,6 +206,9 @@ model WorldElement {
   relatedElements WorldElementRelation[] @relation("WorldElementRelations")
   relatedTo     WorldElementRelation[] @relation("RelatedWorldElementRelations")
   
+  @@index([projectId])
+  @@index([type])
+  @@index([name])
   @@map("world_elements")
 }
 
@@ -200,6 +226,8 @@ model WorldElementRelation {
   relatedElement  WorldElement @relation("RelatedWorldElementRelations", fields: [relatedId], references: [id], onDelete: Cascade)
   
   @@unique([elementId, relatedId, relationType])
+  @@index([elementId])
+  @@index([relatedId])
   @@map("world_element_relations")
 }
 
@@ -217,6 +245,8 @@ model TimelineEvent {
   // Relations
   project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
+  @@index([projectId])
+  @@index([importance])
   @@map("timeline_events")
 }
 
@@ -236,6 +266,9 @@ model Export {
   // Relations
   project     Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   
+  @@index([projectId])
+  @@index([status])
+  @@index([createdAt])
   @@map("exports")
 }
 
@@ -307,6 +340,10 @@ model QueueJob {
   updatedAt   DateTime @updatedAt
   processedAt DateTime?
   
+  @@index([status])
+  @@index([type])
+  @@index([createdAt])
+  @@index([attempts])
   @@map("queue_jobs")
 }
 

@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma';
+import { cacheService, CacheKeys } from '@/services/cacheService';
 import type {
   Project,
   ProjectWithDetails,
@@ -66,6 +67,10 @@ export async function createProject(
     // This creates the foundation for characters, plot threads, etc.
     await initializeProjectContext(project.id);
 
+    // Invalidate user projects cache
+    await cacheService.del(CacheKeys.userProjects(userId));
+    await cacheService.del(`user:${userId}:stats`);
+
     return project;
   } catch (error) {
     console.error('Error creating project:', error);
@@ -80,40 +85,48 @@ export async function getProject(
   projectId: string,
   userId: string
 ): Promise<ProjectWithDetails | null> {
-  try {
-    const project = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId, // Ensures ownership validation
-      },
-      include: {
-        user: true,
-        chapters: {
-          orderBy: { order: 'asc' },
-        },
-        characters: {
-          orderBy: { name: 'asc' },
-        },
-        plotThreads: {
-          orderBy: { createdAt: 'asc' },
-        },
-        worldElements: {
-          orderBy: { name: 'asc' },
-        },
-        timelineEvents: {
-          orderBy: { eventDate: 'asc' },
-        },
-        exports: {
-          orderBy: { createdAt: 'desc' },
-        },
-      },
-    });
+  const cacheKey = `${CacheKeys.project(projectId)}:user:${userId}`;
+  
+  return cacheService.getOrSet(
+    cacheKey,
+    async () => {
+      try {
+        const project = await prisma.project.findFirst({
+          where: {
+            id: projectId,
+            userId, // Ensures ownership validation
+          },
+          include: {
+            user: true,
+            chapters: {
+              orderBy: { order: 'asc' },
+            },
+            characters: {
+              orderBy: { name: 'asc' },
+            },
+            plotThreads: {
+              orderBy: { createdAt: 'asc' },
+            },
+            worldElements: {
+              orderBy: { name: 'asc' },
+            },
+            timelineEvents: {
+              orderBy: { eventDate: 'asc' },
+            },
+            exports: {
+              orderBy: { createdAt: 'desc' },
+            },
+          },
+        });
 
-    return project;
-  } catch (error) {
-    console.error('Error getting project:', error);
-    throw new Error('Failed to get project');
-  }
+        return project;
+      } catch (error) {
+        console.error('Error getting project:', error);
+        throw new Error('Failed to get project');
+      }
+    },
+    { ttl: 300 } // Cache for 5 minutes
+  );
 }
 
 /**
@@ -144,6 +157,13 @@ export async function updateProject(
         updatedAt: new Date(),
       },
     });
+
+    // Invalidate related caches
+    await Promise.all([
+      cacheService.del(`${CacheKeys.project(projectId)}:user:${userId}`),
+      cacheService.del(CacheKeys.userProjects(userId)),
+      cacheService.del(`user:${userId}:stats`),
+    ]);
 
     return updatedProject;
   } catch (error) {
@@ -177,6 +197,13 @@ export async function deleteProject(
       where: { id: projectId },
     });
 
+    // Invalidate all related caches
+    await Promise.all([
+      cacheService.delPattern(`*project:${projectId}*`),
+      cacheService.del(CacheKeys.userProjects(userId)),
+      cacheService.del(`user:${userId}:stats`),
+    ]);
+
     return true;
   } catch (error) {
     console.error('Error deleting project:', error);
@@ -191,84 +218,101 @@ export async function listProjects(
   userId: string,
   options: ProjectListOptions = {}
 ): Promise<ProjectListResult> {
-  try {
-    const {
-      page = 1,
-      limit = 10,
-      status,
-      genre,
-      search,
-      sortBy = 'updatedAt',
-      sortOrder = 'desc',
-    } = options;
+  const {
+    page = 1,
+    limit = 10,
+    status,
+    genre,
+    search,
+    sortBy = 'updatedAt',
+    sortOrder = 'desc',
+  } = options;
 
-    // Build where clause
-    const where: Record<string, unknown> = {
-      userId,
-    };
+  // Create cache key based on all parameters
+  const cacheKey = `${CacheKeys.userProjects(userId)}:${JSON.stringify({
+    page,
+    limit,
+    status,
+    genre,
+    search,
+    sortBy,
+    sortOrder,
+  })}`;
 
-    if (status) {
-      where.status = status;
-    }
+  return cacheService.getOrSet(
+    cacheKey,
+    async () => {
+      try {
+        // Build where clause
+        const where: Record<string, unknown> = {
+          userId,
+        };
 
-    if (genre) {
-      where.genre = {
-        contains: genre,
-        mode: 'insensitive',
-      };
-    }
+        if (status) {
+          where.status = status;
+        }
 
-    if (search) {
-      where.OR = [
-        {
-          title: {
-            contains: search,
+        if (genre) {
+          where.genre = {
+            contains: genre,
             mode: 'insensitive',
+          };
+        }
+
+        if (search) {
+          where.OR = [
+            {
+              title: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+            {
+              description: {
+                contains: search,
+                mode: 'insensitive',
+              },
+            },
+          ];
+        }
+
+        // Calculate pagination
+        const skip = (page - 1) * limit;
+
+        // Get total count and projects in parallel
+        const [total, projects] = await Promise.all([
+          prisma.project.count({ where }),
+          prisma.project.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: {
+              [sortBy]: sortOrder,
+            },
+          }),
+        ]);
+
+        // Calculate pagination info
+        const totalPages = Math.ceil(total / limit);
+
+        return {
+          projects,
+          pagination: {
+            page,
+            limit,
+            total,
+            totalPages,
+            hasNext: page < totalPages,
+            hasPrev: page > 1,
           },
-        },
-        {
-          description: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-      ];
-    }
-
-    // Calculate pagination
-    const skip = (page - 1) * limit;
-
-    // Get total count
-    const total = await prisma.project.count({ where });
-
-    // Get projects
-    const projects = await prisma.project.findMany({
-      where,
-      skip,
-      take: limit,
-      orderBy: {
-        [sortBy]: sortOrder,
-      },
-    });
-
-    // Calculate pagination info
-    const totalPages = Math.ceil(total / limit);
-
-    return {
-      projects,
-      pagination: {
-        page,
-        limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1,
-      },
-    };
-  } catch (error) {
-    console.error('Error listing projects:', error);
-    throw new Error('Failed to list projects');
-  }
+        };
+      } catch (error) {
+        console.error('Error listing projects:', error);
+        throw new Error('Failed to list projects');
+      }
+    },
+    { ttl: 180 } // Cache for 3 minutes
+  );
 }
 
 /**
@@ -355,42 +399,55 @@ export async function getProjectStats(userId: string): Promise<{
   projectsByStatus: Record<ProjectStatus, number>;
   recentActivity: Project[];
 }> {
-  try {
-    const totalProjects = await prisma.project.count({
-      where: { userId },
-    });
+  const cacheKey = `user:${userId}:stats`;
+  
+  return cacheService.getOrSet(
+    cacheKey,
+    async () => {
+      try {
+        // Get all data in parallel for better performance
+        const [totalProjects, projects, recentActivity] = await Promise.all([
+          prisma.project.count({
+            where: { userId },
+          }),
+          prisma.project.findMany({
+            where: { userId },
+            select: {
+              status: true,
+              currentWordCount: true,
+            },
+          }),
+          prisma.project.findMany({
+            where: { userId },
+            orderBy: { updatedAt: 'desc' },
+            take: 5,
+          }),
+        ]);
 
-    const projects = await prisma.project.findMany({
-      where: { userId },
-    });
+        const totalWordCount = projects.reduce(
+          (sum, project) => sum + project.currentWordCount,
+          0
+        );
 
-    const totalWordCount = projects.reduce(
-      (sum, project) => sum + project.currentWordCount,
-      0
-    );
+        const projectsByStatus = projects.reduce(
+          (acc, project) => {
+            acc[project.status] = (acc[project.status] || 0) + 1;
+            return acc;
+          },
+          {} as Record<ProjectStatus, number>
+        );
 
-    const projectsByStatus = projects.reduce(
-      (acc, project) => {
-        acc[project.status] = (acc[project.status] || 0) + 1;
-        return acc;
-      },
-      {} as Record<ProjectStatus, number>
-    );
-
-    const recentActivity = await prisma.project.findMany({
-      where: { userId },
-      orderBy: { updatedAt: 'desc' },
-      take: 5,
-    });
-
-    return {
-      totalProjects,
-      totalWordCount,
-      projectsByStatus,
-      recentActivity,
-    };
-  } catch (error) {
-    console.error('Error getting project stats:', error);
-    throw new Error('Failed to get project statistics');
-  }
+        return {
+          totalProjects,
+          totalWordCount,
+          projectsByStatus,
+          recentActivity,
+        };
+      } catch (error) {
+        console.error('Error getting project stats:', error);
+        throw new Error('Failed to get project statistics');
+      }
+    },
+    { ttl: 600 } // Cache for 10 minutes
+  );
 }
