@@ -2,96 +2,73 @@
  * Authentication validation utilities
  */
 
-export interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-}
+import { ValidationResult } from './input';
+
+// Common weak passwords to check against
+const COMMON_PASSWORDS = [
+  'password',
+  'password123',
+  '123456',
+  '123456789',
+  'qwerty',
+  'abc123',
+  'password1',
+  'admin',
+  'letmein',
+  'welcome',
+  'monkey',
+  '1234567890',
+  'dragon',
+  'rockyou',
+  'princess',
+  'football',
+  'master',
+  'jordan',
+  'superman',
+  'harley',
+];
 
 /**
- * Validate email format
+ * Validate email address format
  */
 export function validateEmail(email: string): ValidationResult {
   const errors: string[] = [];
+  const trimmedEmail = email.trim().toLowerCase();
 
-  if (!email) {
-    errors.push('Email is required');
-  } else {
-    // More strict email validation
-    // Check for basic format first
-    if (
-      !email.includes('@') ||
-      email.indexOf('@') === 0 ||
-      email.indexOf('@') === email.length - 1
-    ) {
-      errors.push('Please enter a valid email address');
-    } else {
-      const [localPart, ...domainParts] = email.split('@');
+  // Basic format validation - more strict regex
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+  
+  if (!emailRegex.test(trimmedEmail)) {
+    errors.push('Invalid email format');
+  }
 
-      // Should have exactly one @ symbol
-      if (domainParts.length !== 1) {
-        errors.push('Please enter a valid email address');
-      } else {
-        const domain = domainParts[0];
+  // Additional checks
+  if (trimmedEmail.includes('..')) {
+    errors.push('Email cannot contain consecutive dots');
+  }
 
-        // Validate local part (before @)
-        if (!localPart || localPart.length === 0) {
-          errors.push('Please enter a valid email address');
-        } else {
-          // Check for consecutive dots
-          if (localPart.includes('..')) {
-            errors.push('Please enter a valid email address');
-          }
+  if (trimmedEmail.startsWith('.') || trimmedEmail.endsWith('.')) {
+    errors.push('Email cannot start or end with a dot');
+  }
 
-          // Check for spaces
-          if (localPart.includes(' ')) {
-            errors.push('Please enter a valid email address');
-          }
+  if (trimmedEmail.includes(' ')) {
+    errors.push('Email cannot contain spaces');
+  }
 
-          // Check for valid characters in local part
-          if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/.test(localPart)) {
-            errors.push('Please enter a valid email address');
-          }
+  // Length validation
+  if (trimmedEmail.length > 254) {
+    errors.push('Email address is too long');
+  }
 
-          // Local part cannot start or end with dot
-          if (localPart.startsWith('.') || localPart.endsWith('.')) {
-            errors.push('Please enter a valid email address');
-          }
-        }
-
-        // Validate domain part (after @)
-        if (!domain || domain.length === 0) {
-          errors.push('Please enter a valid email address');
-        } else {
-          // Domain cannot start with dot
-          if (domain.startsWith('.')) {
-            errors.push('Please enter a valid email address');
-          }
-
-          // Domain must contain at least one dot for TLD
-          if (!domain.includes('.')) {
-            errors.push('Please enter a valid email address');
-          }
-
-          // Check for valid domain format
-          if (
-            !/^[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(
-              domain
-            )
-          ) {
-            errors.push('Please enter a valid email address');
-          }
-        }
-      }
-    }
-
-    if (email.length > 254) {
-      errors.push('Email address is too long');
-    }
+  const [localPart, domain] = trimmedEmail.split('@');
+  if (localPart && localPart.length > 64) {
+    errors.push('Email local part is too long');
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    sanitizedData: errors.length === 0 ? trimmedEmail : undefined,
   };
 }
 
@@ -101,54 +78,61 @@ export function validateEmail(email: string): ValidationResult {
 export function validatePassword(password: string): ValidationResult {
   const errors: string[] = [];
 
-  if (!password) {
-    errors.push('Password is required');
-  } else {
-    // Check minimum length
-    if (password.length < 8) {
-      errors.push('Password must be at least 8 characters long');
-    }
+  // Length requirements
+  if (password.length < 8) {
+    errors.push('Password must be at least 8 characters long');
+  }
 
-    if (password.length > 128) {
-      errors.push('Password is too long (maximum 128 characters)');
-    }
+  if (password.length > 128) {
+    errors.push('Password must be no more than 128 characters long');
+  }
 
-    // Require all character types
-    if (!/[a-z]/.test(password)) {
-      errors.push('Password must contain at least one lowercase letter');
-    }
+  // Character requirements
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
+  const hasNumbers = /\d/.test(password);
+  const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
 
-    if (!/[A-Z]/.test(password)) {
-      errors.push('Password must contain at least one uppercase letter');
-    }
+  if (!hasUppercase) {
+    errors.push('Password must contain at least one uppercase letter');
+  }
 
-    if (!/\d/.test(password)) {
-      errors.push('Password must contain at least one number');
-    }
+  if (!hasLowercase) {
+    errors.push('Password must contain at least one lowercase letter');
+  }
 
-    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
-      errors.push('Password must contain at least one special character');
-    }
+  if (!hasNumbers) {
+    errors.push('Password must contain at least one number');
+  }
 
-    // Check for common weak passwords
-    const commonPasswords = [
-      'password',
-      'password123',
-      '123456',
-      '123456789',
-      'qwerty',
-      'qwerty123!',
-      'abc123',
-      'password1',
-      'admin',
-      'letmein',
-      'welcome',
-      'monkey',
-      'dragon',
-    ];
+  if (!hasSpecialChars) {
+    errors.push('Password must contain at least one special character');
+  }
 
-    if (commonPasswords.includes(password.toLowerCase())) {
-      errors.push('Password is too common. Please choose a stronger password');
+  // Check against common passwords
+  const lowercasePassword = password.toLowerCase();
+  if (COMMON_PASSWORDS.includes(lowercasePassword)) {
+    errors.push('Password is too common, please choose a more secure password');
+  }
+
+  // Check for common patterns
+  if (/^(.)\1+$/.test(password)) {
+    errors.push('Password cannot be all the same character');
+  }
+
+  if (/^(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/i.test(password)) {
+    errors.push('Password cannot contain common sequences');
+  }
+
+  // Check for keyboard patterns
+  const keyboardPatterns = [
+    'qwerty', 'asdf', 'zxcv', '1234', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'
+  ];
+  
+  for (const pattern of keyboardPatterns) {
+    if (lowercasePassword.includes(pattern)) {
+      errors.push('Password cannot contain keyboard patterns');
+      break;
     }
   }
 
@@ -159,162 +143,178 @@ export function validatePassword(password: string): ValidationResult {
 }
 
 /**
- * Validate name (first name or last name)
+ * Validate username format
  */
-export function validateName(
-  name: string,
-  fieldName: string = 'Name'
-): ValidationResult {
+export function validateUsername(username: string): ValidationResult {
   const errors: string[] = [];
+  const trimmedUsername = username.trim();
 
-  if (name && name.trim()) {
-    const trimmedName = name.trim();
+  // Length requirements
+  if (trimmedUsername.length < 3) {
+    errors.push('Username must be at least 3 characters long');
+  }
 
-    if (trimmedName.length < 1) {
-      errors.push(`${fieldName} cannot be empty`);
-    }
+  if (trimmedUsername.length > 30) {
+    errors.push('Username must be no more than 30 characters long');
+  }
 
-    if (trimmedName.length > 50) {
-      errors.push(`${fieldName} is too long (maximum 50 characters)`);
-    }
+  // Character requirements - alphanumeric, underscore, hyphen only
+  const usernameRegex = /^[a-zA-Z0-9_-]+$/;
+  if (!usernameRegex.test(trimmedUsername)) {
+    errors.push('Username can only contain letters, numbers, underscores, and hyphens');
+  }
 
-    // Allow letters, spaces, hyphens, and apostrophes
-    if (!/^[a-zA-Z\s\-']+$/.test(trimmedName)) {
-      errors.push(
-        `${fieldName} can only contain letters, spaces, hyphens, and apostrophes`
-      );
-    }
+  // Cannot start or end with special characters
+  if (/^[_-]|[_-]$/.test(trimmedUsername)) {
+    errors.push('Username cannot start or end with underscore or hyphen');
+  }
+
+  // Cannot have consecutive special characters
+  if (/[_-]{2,}/.test(trimmedUsername)) {
+    errors.push('Username cannot have consecutive underscores or hyphens');
+  }
+
+  // Reserved usernames
+  const reservedUsernames = [
+    'admin', 'administrator', 'root', 'system', 'user', 'guest', 'public',
+    'api', 'www', 'mail', 'ftp', 'test', 'demo', 'support', 'help',
+    'info', 'contact', 'about', 'privacy', 'terms', 'legal', 'security'
+  ];
+
+  if (reservedUsernames.includes(trimmedUsername.toLowerCase())) {
+    errors.push('Username is reserved and cannot be used');
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    sanitizedData: errors.length === 0 ? trimmedUsername : undefined,
   };
 }
 
 /**
- * Validate registration data
+ * Validate phone number format
  */
-export interface RegistrationData {
-  email: string;
-  password: string;
-  confirmPassword: string;
-  firstName?: string;
-  lastName?: string;
-}
-
-export function validateRegistration(data: RegistrationData): ValidationResult {
+export function validatePhoneNumber(phoneNumber: string): ValidationResult {
   const errors: string[] = [];
-
-  // Validate email
-  const emailValidation = validateEmail(data.email);
-  errors.push(...emailValidation.errors);
-
-  // Validate password
-  const passwordValidation = validatePassword(data.password);
-  errors.push(...passwordValidation.errors);
-
-  // Validate password confirmation
-  if (!data.confirmPassword) {
-    errors.push('Password confirmation is required');
-  } else if (data.password !== data.confirmPassword) {
-    errors.push('Passwords do not match');
+  
+  // Remove all non-digit characters for validation
+  const digitsOnly = phoneNumber.replace(/\D/g, '');
+  
+  // Check length (10-15 digits is typical for international numbers)
+  if (digitsOnly.length < 10) {
+    errors.push('Phone number must have at least 10 digits');
   }
-
-  // Validate optional names
-  if (data.firstName) {
-    const firstNameValidation = validateName(data.firstName, 'First name');
-    errors.push(...firstNameValidation.errors);
+  
+  if (digitsOnly.length > 15) {
+    errors.push('Phone number cannot have more than 15 digits');
   }
-
-  if (data.lastName) {
-    const lastNameValidation = validateName(data.lastName, 'Last name');
-    errors.push(...lastNameValidation.errors);
+  
+  // Basic format validation - allow common formats
+  const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)\.]{8,20}$/;
+  if (!phoneRegex.test(phoneNumber)) {
+    errors.push('Invalid phone number format');
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    sanitizedData: errors.length === 0 ? phoneNumber.trim() : undefined,
   };
 }
 
 /**
- * Validate login data
+ * Validate two-factor authentication code
  */
-export interface LoginData {
-  email: string;
-  password: string;
-}
-
-export function validateLogin(data: LoginData): ValidationResult {
+export function validate2FACode(code: string): ValidationResult {
   const errors: string[] = [];
+  const trimmedCode = code.trim().replace(/\s/g, '');
 
-  if (!data.email) {
-    errors.push('Email is required');
-  }
-
-  if (!data.password) {
-    errors.push('Password is required');
+  // Should be 6 digits
+  if (!/^\d{6}$/.test(trimmedCode)) {
+    errors.push('2FA code must be exactly 6 digits');
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    sanitizedData: errors.length === 0 ? trimmedCode : undefined,
   };
 }
 
 /**
- * Validate password reset request
+ * Validate password reset token format
  */
-export function validatePasswordResetRequest(email: string): ValidationResult {
-  return validateEmail(email);
-}
-
-/**
- * Validate password reset data
- */
-export interface PasswordResetData {
-  token: string;
-  password: string;
-  confirmPassword: string;
-}
-
-export function validatePasswordReset(
-  data: PasswordResetData
-): ValidationResult {
+export function validateResetToken(token: string): ValidationResult {
   const errors: string[] = [];
+  const trimmedToken = token.trim();
 
-  if (!data.token) {
-    errors.push('Reset token is required');
-  }
-
-  // Validate new password
-  const passwordValidation = validatePassword(data.password);
-  errors.push(...passwordValidation.errors);
-
-  // Validate password confirmation
-  if (!data.confirmPassword) {
-    errors.push('Password confirmation is required');
-  } else if (data.password !== data.confirmPassword) {
-    errors.push('Passwords do not match');
+  // Should be a hex string of specific length (adjust based on your token generation)
+  if (!/^[a-f0-9]{64}$/i.test(trimmedToken)) {
+    errors.push('Invalid reset token format');
   }
 
   return {
     isValid: errors.length === 0,
     errors,
+    sanitizedData: errors.length === 0 ? trimmedToken : undefined,
   };
 }
 
 /**
- * Sanitize email input
+ * Check if password meets minimum security requirements
  */
-export function sanitizeEmail(email: string): string {
-  return email.trim().toLowerCase();
-}
+export function checkPasswordStrength(password: string): {
+  score: number;
+  feedback: string[];
+  isStrong: boolean;
+} {
+  let score = 0;
+  const feedback: string[] = [];
 
-/**
- * Sanitize name input
- */
-export function sanitizeName(name: string): string {
-  return name.trim().replace(/\s+/g, ' ');
+  // Length scoring
+  if (password.length >= 8) score += 1;
+  if (password.length >= 12) score += 1;
+  if (password.length >= 16) score += 1;
+
+  // Character variety scoring
+  if (/[a-z]/.test(password)) score += 1;
+  if (/[A-Z]/.test(password)) score += 1;
+  if (/\d/.test(password)) score += 1;
+  if (/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) score += 1;
+
+  // Complexity bonus
+  const uniqueChars = new Set(password).size;
+  if (uniqueChars >= password.length * 0.7) score += 1;
+
+  // Provide feedback
+  if (password.length < 8) {
+    feedback.push('Use at least 8 characters');
+  }
+  if (!/[a-z]/.test(password)) {
+    feedback.push('Add lowercase letters');
+  }
+  if (!/[A-Z]/.test(password)) {
+    feedback.push('Add uppercase letters');
+  }
+  if (!/\d/.test(password)) {
+    feedback.push('Add numbers');
+  }
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+    feedback.push('Add special characters');
+  }
+
+  // Check against common passwords
+  if (COMMON_PASSWORDS.includes(password.toLowerCase())) {
+    score = Math.max(0, score - 3);
+    feedback.push('Avoid common passwords');
+  }
+
+  const isStrong = score >= 6;
+
+  return {
+    score,
+    feedback,
+    isStrong,
+  };
 }

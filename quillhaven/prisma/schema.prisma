@@ -29,6 +29,8 @@ model User {
   // Relations
   projects             Project[]
   sessions             Session[]
+  dataDeletionRequests DataDeletionRequest[]
+  exportRecords        ExportRecord[]
   
   @@map("users")
 }
@@ -313,4 +315,34 @@ enum QueueJobStatus {
   PROCESSING
   COMPLETED
   FAILED
+}
+
+// Data deletion request model for GDPR compliance
+model DataDeletionRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  
+  // Relations
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("data_deletion_requests")
+}
+
+// Export record model for tracking data exports
+model ExportRecord {
+  id          String     @id @default(cuid())
+  userId      String
+  format      String     // 'json' or 'zip'
+  fileSize    Int?
+  downloadUrl String?
+  expiresAt   DateTime?
+  createdAt   DateTime   @default(now())
+  
+  // Relations
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("export_records")
 }

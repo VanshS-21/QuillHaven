@@ -82,15 +82,37 @@ export function withOptionalAuth(
 }
 
 /**
- * Rate limiting middleware
+ * Rate limiting middleware with enhanced security features
  */
 interface RateLimitConfig {
   windowMs: number; // Time window in milliseconds
   maxRequests: number; // Maximum requests per window
   message?: string;
+  skipSuccessfulRequests?: boolean; // Don't count successful requests
+  skipFailedRequests?: boolean; // Don't count failed requests
+  keyGenerator?: (req: NextRequest) => string; // Custom key generator
+  onLimitReached?: (req: NextRequest, clientId: string) => void; // Callback when limit reached
 }
 
-const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
+interface RateLimitEntry {
+  count: number;
+  resetTime: number;
+  firstRequest: number;
+  violations: number; // Track repeated violations
+}
+
+const rateLimitStore = new Map<string, RateLimitEntry>();
+const suspiciousIPs = new Set<string>(); // Track IPs with repeated violations
+
+// Clean up expired entries periodically
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, value] of rateLimitStore.entries()) {
+    if (now > value.resetTime) {
+      rateLimitStore.delete(key);
+    }
+  }
+}, 60000); // Clean up every minute
 
 export function withRateLimit(config: RateLimitConfig) {
   return function <T extends unknown[]>(
@@ -98,18 +120,19 @@ export function withRateLimit(config: RateLimitConfig) {
   ) {
     return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
       try {
-        // Get client identifier (IP address)
-        const clientId =
-          req.headers.get('x-forwarded-for') ||
-          req.headers.get('x-real-ip') ||
-          'unknown';
+        // Get client identifier
+        const clientId = config.keyGenerator 
+          ? config.keyGenerator(req)
+          : getClientIdentifier(req);
+        
         const now = Date.now();
 
-        // Clean up expired entries
-        for (const [key, value] of rateLimitStore.entries()) {
-          if (now > value.resetTime) {
-            rateLimitStore.delete(key);
-          }
+        // Check if IP is flagged as suspicious
+        if (suspiciousIPs.has(clientId)) {
+          return NextResponse.json(
+            { error: 'Access temporarily restricted due to suspicious activity' },
+            { status: 429 }
+          );
         }
 
         // Get or create rate limit entry
@@ -120,16 +143,31 @@ export function withRateLimit(config: RateLimitConfig) {
           rateLimitEntry = {
             count: 0,
             resetTime: now + config.windowMs,
+            firstRequest: now,
+            violations: rateLimitEntry?.violations || 0,
           };
           rateLimitStore.set(clientId, rateLimitEntry);
         }
 
         // Check if limit exceeded
         if (rateLimitEntry.count >= config.maxRequests) {
+          rateLimitEntry.violations++;
+          
+          // Flag IP as suspicious after multiple violations
+          if (rateLimitEntry.violations >= 3) {
+            suspiciousIPs.add(clientId);
+            // Remove from suspicious list after 1 hour
+            setTimeout(() => suspiciousIPs.delete(clientId), 60 * 60 * 1000);
+          }
+
+          // Call limit reached callback
+          if (config.onLimitReached) {
+            config.onLimitReached(req, clientId);
+          }
+
           return NextResponse.json(
             {
-              error:
-                config.message || 'Too many requests. Please try again later.',
+              error: config.message || 'Too many requests. Please try again later.',
               retryAfter: Math.ceil((rateLimitEntry.resetTime - now) / 1000),
             },
             {
@@ -139,10 +177,7 @@ export function withRateLimit(config: RateLimitConfig) {
                   (rateLimitEntry.resetTime - now) / 1000
                 ).toString(),
                 'X-RateLimit-Limit': config.maxRequests.toString(),
-                'X-RateLimit-Remaining': Math.max(
-                  0,
-                  config.maxRequests - rateLimitEntry.count - 1
-                ).toString(),
+                'X-RateLimit-Remaining': '0',
                 'X-RateLimit-Reset': new Date(
                   rateLimitEntry.resetTime
                 ).toISOString(),
@@ -151,11 +186,18 @@ export function withRateLimit(config: RateLimitConfig) {
           );
         }
 
-        // Increment counter
+        // Increment counter before calling handler
         rateLimitEntry.count++;
 
         // Call the handler
         const response = await handler(req, ...args);
+
+        // Optionally skip counting based on response status
+        if (config.skipSuccessfulRequests && response.status < 400) {
+          rateLimitEntry.count--;
+        } else if (config.skipFailedRequests && response.status >= 400) {
+          rateLimitEntry.count--;
+        }
 
         // Add rate limit headers to response
         response.headers.set(
@@ -177,6 +219,66 @@ export function withRateLimit(config: RateLimitConfig) {
         // Continue without rate limiting on error
         return handler(req, ...args);
       }
+    };
+  };
+}
+
+/**
+ * Get client identifier for rate limiting
+ */
+function getClientIdentifier(req: NextRequest): string {
+  // Try to get real IP from various headers
+  const forwardedFor = req.headers.get('x-forwarded-for');
+  const realIP = req.headers.get('x-real-ip');
+  const cfConnectingIP = req.headers.get('cf-connecting-ip'); // Cloudflare
+  
+  if (forwardedFor) {
+    // X-Forwarded-For can contain multiple IPs, get the first one
+    return forwardedFor.split(',')[0].trim();
+  }
+  
+  if (realIP) {
+    return realIP;
+  }
+  
+  if (cfConnectingIP) {
+    return cfConnectingIP;
+  }
+  
+  // Fallback to a combination of headers for identification
+  const userAgent = req.headers.get('user-agent') || '';
+  const acceptLanguage = req.headers.get('accept-language') || '';
+  
+  return `unknown-${Buffer.from(userAgent + acceptLanguage).toString('base64').slice(0, 16)}`;
+}
+
+/**
+ * Advanced rate limiting with different tiers
+ */
+export function withTieredRateLimit(configs: {
+  [key: string]: RateLimitConfig;
+}) {
+  return function <T extends unknown[]>(
+    handler: (req: NextRequest, ...args: T) => Promise<NextResponse>
+  ) {
+    return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
+      // Determine which rate limit config to use based on user or endpoint
+      let configKey = 'default';
+      
+      // Check if user is authenticated and has a subscription tier
+      const authHeader = req.headers.get('authorization');
+      if (authHeader) {
+        // You could decode the JWT here to get user tier
+        // For now, we'll use a simple approach
+        configKey = 'authenticated';
+      }
+      
+      const config = configs[configKey] || configs['default'];
+      if (!config) {
+        return handler(req, ...args);
+      }
+      
+      return withRateLimit(config)(handler)(req, ...args);
     };
   };
 }
