@@ -64,8 +64,6 @@
 
 - [x] 8. Build chapter management backend API
 
-
-
   - Create chapter CRUD endpoints with project association
   - Implement chapter generation endpoint using Gemini AI service
   - Add chapter reordering functionality with order validation
@@ -73,9 +71,12 @@
   - Create chapter search and filtering capabilities
   - _Requirements: 3.1, 3.5, 5.3, 5.4, 5.5_
 
-- [ ] 9. Create chapter editing and generation frontend
+- [x] 9. Create chapter editing and generation frontend
+
+
 
   - Build ChapterEditor component with Monaco Editor integration
+
   - Create ChapterGenerator interface with parameter controls
   - Implement auto-save functionality with debounced API calls
   - Add chapter list with drag-and-drop reordering
