@@ -137,6 +137,7 @@ export function validatePassword(password: string): ValidationResult {
       '123456',
       '123456789',
       'qwerty',
+      'qwerty123!',
       'abc123',
       'password1',
       'admin',

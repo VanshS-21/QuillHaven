@@ -1,6 +1,0 @@
-# Constants
-
-This directory will contain application constants:
-- apiEndpoints.ts
-- appConfig.ts
-- errorMessages.ts

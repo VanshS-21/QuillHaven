@@ -1,7 +1,0 @@
-# Chapter Management Components
-
-This directory will contain chapter-related components:
-- ChapterList
-- ChapterEditor
-- ChapterGenerator
-- VersionHistory

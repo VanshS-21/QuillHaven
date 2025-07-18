@@ -1,6 +1,0 @@
-# Storage Services
-
-This directory will contain storage utilities:
-- localStorage.ts
-- sessionStorage.ts
-- cacheService.ts

@@ -6,12 +6,14 @@ async function testVerification() {
 
   try {
     console.log('Testing verification with code: 968123');
-    const response = await fetch(`${BASE_URL}/api/auth/verify-email?token=968123`);
+    const response = await fetch(
+      `${BASE_URL}/api/auth/verify-email?token=968123`
+    );
     const data = await response.json();
-    
+
     console.log(`Status: ${response.status}`);
     console.log(`Response:`, data);
-    
+
     if (response.status === 200) {
       console.log('✅ Email verification successful!');
     } else {

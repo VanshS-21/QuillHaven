@@ -31,7 +31,7 @@ async function runTests() {
     password: 'testpass123',
     confirmPassword: 'testpass123',
     firstName: 'Test',
-    lastName: 'User'
+    lastName: 'User',
   };
 
   const registerResult = await testEndpoint(`${BASE_URL}/api/auth/register`, {

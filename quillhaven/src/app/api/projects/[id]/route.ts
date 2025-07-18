@@ -1,19 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
-import { 
-  getProject, 
-  updateProject, 
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
+import {
+  getProject,
+  updateProject,
   deleteProject,
-  validateProjectOwnership 
 } from '@/services/projectService';
 import { z } from 'zod';
 
 // Validation schema for project updates
 const updateProjectSchema = z.object({
-  title: z.string().min(1, 'Title is required').max(200, 'Title too long').optional(),
+  title: z
+    .string()
+    .min(1, 'Title is required')
+    .max(200, 'Title too long')
+    .optional(),
   description: z.string().max(1000, 'Description too long').optional(),
-  genre: z.string().min(1, 'Genre is required').max(100, 'Genre too long').optional(),
-  targetLength: z.number().min(1000, 'Target length must be at least 1,000 words').max(1000000, 'Target length too large').optional(),
+  genre: z
+    .string()
+    .min(1, 'Genre is required')
+    .max(100, 'Genre too long')
+    .optional(),
+  targetLength: z
+    .number()
+    .min(1000, 'Target length must be at least 1,000 words')
+    .max(1000000, 'Target length too large')
+    .optional(),
   status: z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED']).optional(),
 });
 
@@ -22,11 +37,22 @@ const updateProjectSchema = z.object({
  */
 async function handleGet(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = (req as any).user;
-    const projectId = params.id;
+    const user = (req as AuthenticatedRequest).user;
+    const { id: projectId } = await params;
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
 
     // Validate project ID format (basic check)
     if (!projectId || typeof projectId !== 'string') {
@@ -72,12 +98,23 @@ async function handleGet(
  */
 async function handlePut(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = (req as any).user;
-    const projectId = params.id;
+    const user = (req as AuthenticatedRequest).user;
+    const { id: projectId } = await params;
     const body = await req.json();
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
 
     // Validate project ID format
     if (!projectId || typeof projectId !== 'string') {
@@ -104,7 +141,11 @@ async function handlePut(
       );
     }
 
-    const updatedProject = await updateProject(projectId, user.id, validatedData);
+    const updatedProject = await updateProject(
+      projectId,
+      user.id,
+      validatedData
+    );
 
     if (!updatedProject) {
       return NextResponse.json(
@@ -123,7 +164,7 @@ async function handlePut(
     });
   } catch (error) {
     console.error('Error updating project:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -150,11 +191,22 @@ async function handlePut(
  */
 async function handleDelete(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = (req as any).user;
-    const projectId = params.id;
+    const user = (req as AuthenticatedRequest).user;
+    const { id: projectId } = await params;
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
 
     // Validate project ID format
     if (!projectId || typeof projectId !== 'string') {

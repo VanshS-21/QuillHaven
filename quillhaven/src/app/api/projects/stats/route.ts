@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { getProjectStats } from '@/services/projectService';
 
 /**
@@ -7,7 +11,18 @@ import { getProjectStats } from '@/services/projectService';
  */
 async function handleGet(req: NextRequest) {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
 
     const stats = await getProjectStats(user.id);
 

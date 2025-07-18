@@ -12,7 +12,6 @@ const JWT_EXPIRES_IN = '24h';
 const SALT_ROUNDS = 12;
 
 // Token expiration times
-const EMAIL_VERIFICATION_EXPIRES = 24 * 60 * 60 * 1000; // 24 hours
 const PASSWORD_RESET_EXPIRES = 60 * 60 * 1000; // 1 hour
 
 export interface JWTPayload {
@@ -64,7 +63,7 @@ export function generateToken(user: User): string {
 export function verifyToken(token: string): JWTPayload | null {
   try {
     return jwt.verify(token, JWT_SECRET) as JWTPayload;
-  } catch (error) {
+  } catch {
     return null;
   }
 }
@@ -93,23 +92,32 @@ export async function registerUser(
   lastName?: string
 ): Promise<AuthResult> {
   try {
+    console.log(`[AUTH] Registration attempt for email: ${email}`);
+
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
     if (existingUser) {
+      console.log(`[AUTH] User already exists for email: ${email}`);
       return {
         success: false,
         message: 'User with this email already exists',
       };
     }
 
+    console.log(`[AUTH] Creating new user for email: ${email}`);
+
     // Hash password
     const passwordHash = await hashPassword(password);
 
     // Generate email verification code (6-digit)
     const emailVerificationToken = generateVerificationCode();
+
+    console.log(
+      `[AUTH] Generated verification token: ${emailVerificationToken}`
+    );
 
     // Create user
     const user = await prisma.user.create({
@@ -122,7 +130,10 @@ export async function registerUser(
       },
     });
 
+    console.log(`[AUTH] User created successfully: ${user.id}`);
+
     // Remove password hash from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
@@ -147,27 +158,37 @@ export async function loginUser(
   password: string
 ): Promise<AuthResult> {
   try {
+    console.log(`[AUTH] Login attempt for email: ${email}`);
+
     // Find user by email
     const user = await prisma.user.findUnique({
       where: { email: email.toLowerCase() },
     });
 
     if (!user) {
+      console.log(`[AUTH] User not found for email: ${email}`);
       return {
         success: false,
         message: 'Invalid email or password',
       };
     }
+
+    console.log(
+      `[AUTH] User found: ${user.id}, email verified: ${user.emailVerified ? 'yes' : 'no'}`
+    );
 
     // Verify password
     const isValidPassword = await verifyPassword(password, user.passwordHash);
 
     if (!isValidPassword) {
+      console.log(`[AUTH] Invalid password for user: ${user.id}`);
       return {
         success: false,
         message: 'Invalid email or password',
       };
     }
+
+    console.log(`[AUTH] Password valid for user: ${user.id}`);
 
     // Generate JWT token
     const token = generateToken(user);
@@ -181,7 +202,10 @@ export async function loginUser(
       },
     });
 
+    console.log(`[AUTH] Session created for user: ${user.id}`);
+
     // Remove password hash from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = user;
 
     return {
@@ -224,6 +248,7 @@ export async function verifyEmail(token: string): Promise<AuthResult> {
       },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
 
     return {
@@ -329,6 +354,7 @@ export async function resetPassword(
       where: { userId: user.id },
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { passwordHash: _, ...userWithoutPassword } = updatedUser;
 
     return {
@@ -358,7 +384,7 @@ export async function logoutUser(token: string): Promise<AuthResult> {
       success: true,
       message: 'Logged out successfully',
     };
-  } catch (error) {
+  } catch {
     // Session might not exist, which is fine
     return {
       success: true,

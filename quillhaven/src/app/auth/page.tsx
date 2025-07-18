@@ -19,17 +19,13 @@ export default function AuthPage() {
             onSwitchToReset={() => setMode('reset')}
           />
         )}
-        
+
         {mode === 'register' && (
-          <RegisterForm
-            onSwitchToLogin={() => setMode('login')}
-          />
+          <RegisterForm onSwitchToLogin={() => setMode('login')} />
         )}
-        
+
         {mode === 'reset' && (
-          <PasswordReset
-            onSwitchToLogin={() => setMode('login')}
-          />
+          <PasswordReset onSwitchToLogin={() => setMode('login')} />
         )}
       </div>
     </div>

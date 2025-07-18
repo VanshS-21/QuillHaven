@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'QuillHaven - AI-Powered Writing Platform',
-  description: 'Create novels, memoirs, and creative stories with context-aware AI assistance.',
+  description:
+    'Create novels, memoirs, and creative stories with context-aware AI assistance.',
 };
 
 export default function RootLayout({
@@ -28,9 +29,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

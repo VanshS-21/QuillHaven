@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { createProject, listProjects } from '@/services/projectService';
 import { z } from 'zod';
 
@@ -8,16 +12,25 @@ const createProjectSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200, 'Title too long'),
   description: z.string().max(1000, 'Description too long').optional(),
   genre: z.string().min(1, 'Genre is required').max(100, 'Genre too long'),
-  targetLength: z.number().min(1000, 'Target length must be at least 1,000 words').max(1000000, 'Target length too large'),
+  targetLength: z
+    .number()
+    .min(1000, 'Target length must be at least 1,000 words')
+    .max(1000000, 'Target length too large'),
 });
 
 const listProjectsSchema = z.object({
   page: z.string().transform(Number).pipe(z.number().min(1)).optional(),
-  limit: z.string().transform(Number).pipe(z.number().min(1).max(100)).optional(),
+  limit: z
+    .string()
+    .transform(Number)
+    .pipe(z.number().min(1).max(100))
+    .optional(),
   status: z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED']).optional(),
   genre: z.string().optional(),
   search: z.string().optional(),
-  sortBy: z.enum(['title', 'createdAt', 'updatedAt', 'currentWordCount']).optional(),
+  sortBy: z
+    .enum(['title', 'createdAt', 'updatedAt', 'currentWordCount'])
+    .optional(),
   sortOrder: z.enum(['asc', 'desc']).optional(),
 });
 
@@ -26,9 +39,20 @@ const listProjectsSchema = z.object({
  */
 async function handleGet(req: NextRequest) {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const { searchParams } = new URL(req.url);
-    
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
+
     // Parse and validate query parameters
     const queryParams = Object.fromEntries(searchParams.entries());
     const validatedParams = listProjectsSchema.parse(queryParams);
@@ -41,7 +65,7 @@ async function handleGet(req: NextRequest) {
     });
   } catch (error) {
     console.error('Error listing projects:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {
@@ -68,8 +92,19 @@ async function handleGet(req: NextRequest) {
  */
 async function handlePost(req: NextRequest) {
   try {
-    const user = (req as any).user;
+    const user = (req as AuthenticatedRequest).user;
     const body = await req.json();
+
+    // Check if user is authenticated
+    if (!user) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Authentication required',
+        },
+        { status: 401 }
+      );
+    }
 
     // Validate request body
     const validatedData = createProjectSchema.parse(body);
@@ -86,7 +121,7 @@ async function handlePost(req: NextRequest) {
     );
   } catch (error) {
     console.error('Error creating project:', error);
-    
+
     if (error instanceof z.ZodError) {
       return NextResponse.json(
         {

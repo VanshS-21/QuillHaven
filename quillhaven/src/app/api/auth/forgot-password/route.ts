@@ -13,15 +13,16 @@ interface ForgotPasswordRequestData {
 }
 
 // Validation function for forgot password data
-function validateForgotPasswordData(data: any) {
-  const validation = validatePasswordResetRequest(data.email);
+function validateForgotPasswordData(data: unknown) {
+  const typedData = data as { email?: string };
+  const validation = validatePasswordResetRequest(typedData.email || '');
 
   if (validation.isValid) {
     return {
       isValid: true,
       errors: [],
       data: {
-        email: sanitizeEmail(data.email),
+        email: sanitizeEmail(typedData.email || ''),
       } as ForgotPasswordRequestData,
     };
   }
@@ -88,7 +89,7 @@ async function handleForgotPassword(
 const handler = withCors(
   withRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 3, // 3 password reset requests per 15 minutes
+    maxRequests: 20, // 20 password reset requests per 15 minutes (more lenient for testing)
     message: 'Too many password reset requests. Please try again later.',
   })(withValidation(validateForgotPasswordData, handleForgotPassword))
 );

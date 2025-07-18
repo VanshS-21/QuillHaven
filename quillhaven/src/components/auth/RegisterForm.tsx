@@ -27,9 +27,15 @@ import type { RegisterFormData } from '@/types/auth';
 
 const registerSchema = z
   .object({
-    email: z.string().email('Please enter a valid email address'),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirmPassword: z.string().min(6, 'Please confirm your password'),
+    email: z
+      .string()
+      .min(1, 'Email is required')
+      .email('Please enter a valid email address'),
+    password: z
+      .string()
+      .min(1, 'Password is required')
+      .min(6, 'Password must be at least 6 characters'),
+    confirmPassword: z.string().min(1, 'Please confirm your password'),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
   })
@@ -43,7 +49,10 @@ interface RegisterFormProps {
 }
 
 const verificationSchema = z.object({
-  code: z.string().min(6, 'Verification code must be 6 characters').max(6, 'Verification code must be 6 characters'),
+  code: z
+    .string()
+    .min(6, 'Verification code must be 6 characters')
+    .max(6, 'Verification code must be 6 characters'),
 });
 
 type VerificationFormData = z.infer<typeof verificationSchema>;
@@ -93,17 +102,19 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     try {
       setError('');
       setVerificationLoading(true);
-      
+
       const response = await fetch(`/api/auth/verify-email?token=${data.code}`);
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Invalid verification code');
       }
 
-      setSuccess('Email verified successfully! You can now sign in to your account.');
+      setSuccess(
+        'Email verified successfully! You can now sign in to your account.'
+      );
       setShowVerification(false);
-      
+
       // Optionally switch to login after successful verification
       setTimeout(() => {
         if (onSwitchToLogin) {
@@ -111,7 +122,9 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         }
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid verification code');
+      setError(
+        err instanceof Error ? err.message : 'Invalid verification code'
+      );
     } finally {
       setVerificationLoading(false);
     }
@@ -247,11 +260,15 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
             )}
 
             <div className="text-center text-sm text-gray-600 mb-4">
-              We've sent a verification code to <strong>{registeredEmail}</strong>
+              We&apos;ve sent a verification code to{' '}
+              <strong>{registeredEmail}</strong>
             </div>
 
             <Form {...verificationForm}>
-              <form onSubmit={verificationForm.handleSubmit(onVerificationSubmit)} className="space-y-4">
+              <form
+                onSubmit={verificationForm.handleSubmit(onVerificationSubmit)}
+                className="space-y-4"
+              >
                 <FormField
                   control={verificationForm.control}
                   name="code"
@@ -272,7 +289,11 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                   )}
                 />
 
-                <Button type="submit" className="w-full" disabled={verificationLoading}>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={verificationLoading}
+                >
                   {verificationLoading ? 'Verifying...' : 'Verify Email'}
                 </Button>
               </form>
@@ -280,7 +301,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
 
             <div className="text-center text-sm space-y-2">
               <div>
-                Didn't receive the code?{' '}
+                Didn&apos;t receive the code?{' '}
                 <button
                   type="button"
                   className="text-blue-600 hover:text-blue-500 hover:underline font-medium"
@@ -294,7 +315,10 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
               </div>
               <div>
                 Or{' '}
-                <Link href="/auth/verify-email" className="text-blue-600 hover:text-blue-500 hover:underline font-medium">
+                <Link
+                  href="/auth/verify-email"
+                  className="text-blue-600 hover:text-blue-500 hover:underline font-medium"
+                >
                   verify via email link
                 </Link>
               </div>

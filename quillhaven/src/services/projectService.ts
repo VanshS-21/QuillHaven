@@ -3,7 +3,6 @@ import type {
   Project,
   ProjectWithDetails,
   ProjectStatus,
-  User,
 } from '@/types/database';
 
 export interface CreateProjectData {
@@ -204,7 +203,7 @@ export async function listProjects(
     } = options;
 
     // Build where clause
-    const where: any = {
+    const where: Record<string, unknown> = {
       userId,
     };
 

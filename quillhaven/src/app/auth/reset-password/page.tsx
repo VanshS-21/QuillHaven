@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -36,10 +36,10 @@ const resetPasswordSchema = z
 
 type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>;
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
-  
+
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
@@ -54,7 +54,9 @@ export default function ResetPasswordPage() {
 
   useEffect(() => {
     if (!token) {
-      setError('Invalid or missing reset token. Please request a new password reset.');
+      setError(
+        'Invalid or missing reset token. Please request a new password reset.'
+      );
     }
   }, [token]);
 
@@ -68,7 +70,7 @@ export default function ResetPasswordPage() {
       setError('');
       setSuccess('');
       setIsLoading(true);
-      
+
       const response = await fetch('/api/auth/reset-password', {
         method: 'POST',
         headers: {
@@ -80,13 +82,15 @@ export default function ResetPasswordPage() {
           confirmPassword: data.confirmPassword,
         }),
       });
-      
+
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || 'Password reset failed');
       }
 
-      setSuccess('Password reset successfully! You can now sign in with your new password.');
+      setSuccess(
+        'Password reset successfully! You can now sign in with your new password.'
+      );
       form.reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Password reset failed');
@@ -109,12 +113,11 @@ export default function ResetPasswordPage() {
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-              Invalid or missing reset token. Please request a new password reset.
+              Invalid or missing reset token. Please request a new password
+              reset.
             </div>
             <Link href="/auth">
-              <Button className="w-full">
-                Back to Sign In
-              </Button>
+              <Button className="w-full">Back to Sign In</Button>
             </Link>
           </CardContent>
         </Card>
@@ -140,14 +143,15 @@ export default function ResetPasswordPage() {
                 {success}
               </div>
               <Link href="/auth">
-                <Button className="w-full">
-                  Continue to Sign In
-                </Button>
+                <Button className="w-full">Continue to Sign In</Button>
               </Link>
             </div>
           ) : (
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form
+                onSubmit={form.handleSubmit(onSubmit)}
+                className="space-y-4"
+              >
                 {error && (
                   <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
                     {error}
@@ -198,12 +202,40 @@ export default function ResetPasswordPage() {
           )}
 
           <div className="mt-6 text-center text-sm">
-            <Link href="/auth" className="text-blue-600 hover:text-blue-500 hover:underline">
+            <Link
+              href="/auth"
+              className="text-blue-600 hover:text-blue-500 hover:underline"
+            >
               Back to Sign In
             </Link>
           </div>
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+      <Card className="w-full max-w-md mx-auto">
+        <CardHeader className="space-y-1">
+          <CardTitle className="text-2xl font-bold text-center">
+            Loading...
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ResetPasswordContent />
+    </Suspense>
   );
 }

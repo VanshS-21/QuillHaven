@@ -11,12 +11,14 @@ QuillHaven is a sophisticated writing platform designed specifically for novelis
 **Overall Progress:** 4/18 major tasks completed (22%)
 
 ### ✅ **Completed Features (Tasks 1-4)**
+
 - 🏗️ **Project Foundation** - Next.js 15 + TypeScript + Tailwind CSS
 - 🗄️ **Database Schema** - Complete Prisma schema with PostgreSQL
 - 🔐 **Authentication Backend** - JWT tokens, password hashing, email verification
 - 🎨 **Authentication Frontend** - Login, register, password reset components
 
 ### 🎯 **Current Capabilities**
+
 - ✅ User registration with email verification
 - ✅ Secure login with JWT token management
 - ✅ Password reset functionality
@@ -28,29 +30,34 @@ QuillHaven is a sophisticated writing platform designed specifically for novelis
 ## 🚀 **Getting Started**
 
 ### **Prerequisites**
-- Node.js 18+ 
+
+- Node.js 18+
 - PostgreSQL database
 - Docker (optional, for local database)
 
 ### **Installation**
 
 1. **Clone the repository**
+
    ```bash
    git clone https://github.com/VanshS-21/QuillHaven.git
    cd QuillHaven/quillhaven
    ```
 
 2. **Install dependencies**
+
    ```bash
    npm install
    ```
 
 3. **Set up environment variables**
+
    ```bash
    cp .env.example .env
    ```
-   
+
    Update `.env` with your configuration:
+
    ```env
    DATABASE_URL="postgresql://username:password@localhost:5432/quillhaven"
    JWT_SECRET="your-super-secret-jwt-key"
@@ -58,21 +65,23 @@ QuillHaven is a sophisticated writing platform designed specifically for novelis
    ```
 
 4. **Set up the database**
+
    ```bash
    # Start PostgreSQL (if using Docker)
    docker-compose up -d
-   
+
    # Run database migrations
    npm run db:migrate
-   
+
    # Generate Prisma client
    npm run db:generate
-   
+
    # Seed database (optional)
    npm run db:seed
    ```
 
 5. **Start the development server**
+
    ```bash
    npm run dev
    ```
@@ -83,6 +92,7 @@ QuillHaven is a sophisticated writing platform designed specifically for novelis
 ## 🏗️ **Tech Stack**
 
 ### **Core Technologies**
+
 - **Frontend:** Next.js 15, React 19, TypeScript
 - **Styling:** Tailwind CSS, Radix UI components
 - **Backend:** Next.js API routes
@@ -91,6 +101,7 @@ QuillHaven is a sophisticated writing platform designed specifically for novelis
 - **Validation:** Zod schemas, React Hook Form
 
 ### **Development Tools**
+
 - **Code Quality:** ESLint, Prettier, Husky
 - **Testing:** Jest, React Testing Library, TestSprite
 - **Containerization:** Docker, Docker Compose
@@ -123,11 +134,13 @@ quillhaven/
 ## 🧪 **Testing**
 
 ### **Test Coverage**
+
 - **62.5% authentication tests passing** ✅
 - **8 comprehensive test scenarios**
 - **Automated testing with TestSprite MCP**
 
 ### **Run Tests**
+
 ```bash
 # Unit tests
 npm run test
@@ -140,6 +153,7 @@ npm run test:coverage
 ```
 
 ### **Test Reports**
+
 - 📊 [Latest Test Report](./testsprite_tests/testsprite-mcp-test-report-final.md)
 - 📈 [Test Plan](./testsprite_tests/testsprite_frontend_test_plan.json)
 - 🔍 [Test Evidence](./testsprite_tests/)
@@ -147,6 +161,7 @@ npm run test:coverage
 ## 🗄️ **Database Schema**
 
 Complete database schema supporting:
+
 - **Users** - Authentication and profiles
 - **Projects** - Writing projects with metadata
 - **Chapters** - Individual chapters with version history
@@ -158,6 +173,7 @@ Complete database schema supporting:
 ## 🔐 **Authentication Features**
 
 ### **Current Implementation**
+
 - ✅ User registration with email verification
 - ✅ Secure login with JWT tokens
 - ✅ Password reset via email
@@ -167,6 +183,7 @@ Complete database schema supporting:
 - ✅ Password hashing with bcryptjs
 
 ### **Security Measures**
+
 - 🔒 JWT token authentication
 - 🛡️ Password hashing with bcryptjs (12 rounds)
 - 🚦 Rate limiting on API endpoints
@@ -177,6 +194,7 @@ Complete database schema supporting:
 ## 🎨 **UI Components**
 
 Built with modern, accessible components:
+
 - **Authentication Forms** - Login, register, password reset
 - **Navigation** - Responsive navigation with auth states
 - **Form Components** - Validated forms with error handling
@@ -212,18 +230,21 @@ npm run test:coverage   # Generate test coverage report
 ## 🚧 **Upcoming Features**
 
 ### **Phase 2: Project Management (Tasks 5-6)**
+
 - 📁 Project creation and management
 - 📊 Project dashboard with statistics
 - 🎯 Project settings and metadata
 - 📈 Progress tracking
 
 ### **Phase 3: AI Integration (Tasks 7-9)**
+
 - 🤖 Gemini AI integration for content generation
 - ✍️ Chapter creation and editing
 - 🔄 AI-powered content regeneration
 - 📝 Context-aware writing assistance
 
 ### **Phase 4: Advanced Features (Tasks 10-18)**
+
 - 👥 Character database management
 - 📖 Plot thread tracking
 - 🌍 World-building tools
@@ -240,7 +261,9 @@ npm run test:coverage   # Generate test coverage report
 5. Open a Pull Request
 
 ### **Commit Convention**
+
 We use [Conventional Commits](https://www.conventionalcommits.org/):
+
 - `feat:` - New features
 - `fix:` - Bug fixes
 - `docs:` - Documentation updates

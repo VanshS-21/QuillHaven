@@ -53,7 +53,7 @@ export interface ApiResponse<T> {
   data?: T;
   error?: string;
   message?: string;
-  details?: any;
+  details?: unknown;
 }
 
 /**
@@ -68,7 +68,7 @@ export class ProjectApiService {
   ): Promise<ApiResponse<T>> {
     try {
       const token = this.getAuthToken();
-      
+
       const response = await fetch(`${this.baseUrl}${endpoint}`, {
         ...options,
         headers: {
@@ -92,7 +92,7 @@ export class ProjectApiService {
   private getAuthToken(): string | null {
     // In a real app, this would get the token from localStorage, cookies, or context
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('authToken');
+      return localStorage.getItem('auth_token');
     }
     return null;
   }
@@ -100,7 +100,9 @@ export class ProjectApiService {
   /**
    * Create a new project
    */
-  async createProject(data: CreateProjectRequest): Promise<ApiResponse<Project>> {
+  async createProject(
+    data: CreateProjectRequest
+  ): Promise<ApiResponse<Project>> {
     return this.request<Project>('', {
       method: 'POST',
       body: JSON.stringify(data),
@@ -143,7 +145,7 @@ export class ProjectApiService {
     params: ListProjectsRequest = {}
   ): Promise<ApiResponse<ListProjectsResponse>> {
     const searchParams = new URLSearchParams();
-    
+
     Object.entries(params).forEach(([key, value]) => {
       if (value !== undefined && value !== null) {
         searchParams.append(key, value.toString());

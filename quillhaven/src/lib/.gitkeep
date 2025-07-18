@@ -1,6 +1,0 @@
-# Core Business Logic
-
-This directory will contain core business logic:
-- database connection utilities
-- middleware functions
-- server-side utilities

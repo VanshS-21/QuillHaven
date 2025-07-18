@@ -1,8 +1,0 @@
-# Custom React Hooks
-
-This directory will contain custom React hooks:
-- useAuth.ts
-- useProject.ts
-- useChapter.ts
-- useContext.ts
-- useLocalStorage.ts

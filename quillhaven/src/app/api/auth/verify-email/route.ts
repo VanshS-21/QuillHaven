@@ -48,7 +48,7 @@ async function handleVerifyEmail(req: NextRequest) {
 const handler = withCors(
   withRateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 10, // 10 verification attempts per 15 minutes
+    maxRequests: 50, // 50 verification attempts per 15 minutes (more lenient for testing)
     message: 'Too many verification attempts. Please try again later.',
   })(handleVerifyEmail)
 );

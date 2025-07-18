@@ -1,7 +1,0 @@
-# Common Components
-
-This directory will contain shared UI components used across the application:
-- Layout components
-- Navigation
-- Loading states
-- Error boundaries

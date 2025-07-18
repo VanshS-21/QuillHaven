@@ -1,0 +1,18 @@
+{
+  "status": "commited",
+  "type": "frontend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:3000",
+  "loginUser": "Test Writer",
+  "loginPassword": "TestPass123!",
+  "executionArgs": {
+    "projectName": "quillhaven",
+    "projectPath": "F:\\QuillHaven\\quillhaven",
+    "testIds": ["TC001", "TC002", "TC003", "TC004", "TC005", "TC006"],
+    "additionalInstruction": "Test the fixed authentication system with updated rate limiting and environment configuration. Focus on registration, login, and project creation functionality.",
+    "envs": {
+      "API_KEY": "sk-user-SD3k5_inw4qHl_7Qkx027JVA9EbkZs__q_tEtdGpVK5KD4b1zvcJjsJyLAM1DTk_aKGnY69GYPkun6mBr5VP2DPIc4zmxdEPZluXEI0_SPehA48jA__hoe5xc9IyoKosQtI"
+    }
+  },
+  "proxy": "http://ecdeef5e-fdef-42e2-8a9c-f7253ef4ced5:l15hvCPMelU2UBUGEX9nCIDpID1Q1rvh@tun.testsprite.com:8080"
+}

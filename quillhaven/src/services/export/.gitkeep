@@ -1,7 +1,0 @@
-# Export Services
-
-This directory will contain file export services:
-- docxExporter.ts
-- pdfExporter.ts
-- epubExporter.ts
-- txtExporter.ts

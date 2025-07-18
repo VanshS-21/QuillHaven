@@ -1,7 +1,0 @@
-# Context Management Components
-
-This directory will contain context management components:
-- CharacterDatabase
-- PlotTracker
-- WorldBuilder
-- ContextViewer

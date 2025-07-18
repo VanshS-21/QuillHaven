@@ -25,8 +25,14 @@ import { useAuth } from './AuthContext';
 import type { LoginFormData } from '@/types/auth';
 
 const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  email: z
+    .string()
+    .min(1, 'Email is required')
+    .email('Please enter a valid email address'),
+  password: z
+    .string()
+    .min(1, 'Password is required')
+    .min(6, 'Password must be at least 6 characters'),
 });
 
 interface LoginFormProps {
@@ -132,7 +138,7 @@ export function LoginForm({
 
           {onSwitchToRegister && (
             <div>
-              Don't have an account?{' '}
+              Don&apos;t have an account?{' '}
               <button
                 type="button"
                 onClick={onSwitchToRegister}

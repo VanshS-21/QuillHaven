@@ -9,7 +9,7 @@ export interface AuthenticatedRequest extends NextRequest {
 /**
  * Authentication middleware for API routes
  */
-export function withAuth<T extends any[]>(
+export function withAuth<T extends unknown[]>(
   handler: (req: AuthenticatedRequest, ...args: T) => Promise<NextResponse>
 ) {
   return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
@@ -93,7 +93,9 @@ interface RateLimitConfig {
 const rateLimitStore = new Map<string, { count: number; resetTime: number }>();
 
 export function withRateLimit(config: RateLimitConfig) {
-  return function <T extends any[]>(handler: (req: NextRequest, ...args: T) => Promise<NextResponse>) {
+  return function <T extends unknown[]>(
+    handler: (req: NextRequest, ...args: T) => Promise<NextResponse>
+  ) {
     return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
       try {
         // Get client identifier (IP address)
@@ -241,12 +243,16 @@ export function withCors(
  * Input validation middleware
  */
 export function withValidation<T>(
-  validator: (data: any) => { isValid: boolean; errors: string[]; data?: T },
+  validator: (data: unknown) => {
+    isValid: boolean;
+    errors: string[];
+    data?: T;
+  },
   handler: (req: NextRequest, validatedData: T) => Promise<NextResponse>
 ) {
   return async (req: NextRequest): Promise<NextResponse> => {
     try {
-      let requestData: any;
+      let requestData: unknown;
 
       // Parse request body based on content type
       const contentType = req.headers.get('content-type') || '';

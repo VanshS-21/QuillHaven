@@ -1,6 +1,0 @@
-# Validation Utilities
-
-This directory will contain validation functions:
-- authValidation.ts
-- projectValidation.ts
-- chapterValidation.ts

@@ -19,7 +19,7 @@ class AuthService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Login failed');
+      throw new Error(error.error || error.message || 'Login failed');
     }
 
     const result = await response.json();
@@ -43,7 +43,7 @@ class AuthService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Registration failed');
+      throw new Error(error.error || error.message || 'Registration failed');
     }
 
     const result = await response.json();
@@ -67,7 +67,7 @@ class AuthService {
 
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.message || 'Password reset failed');
+      throw new Error(error.error || error.message || 'Password reset failed');
     }
   }
 
@@ -88,7 +88,7 @@ class AuthService {
       }
 
       return await response.json();
-    } catch (error) {
+    } catch {
       this.logout();
       return null;
     }

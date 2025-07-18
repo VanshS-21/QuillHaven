@@ -12,7 +12,7 @@ const EMAIL_CONFIG = {
 };
 
 const FROM_EMAIL = process.env.EMAIL_FROM || 'noreply@quillhaven.com';
-const BASE_URL = process.env.NEXTAUTH_URL || 'http://localhost:3000';
+const BASE_URL = process.env.APP_URL || 'http://localhost:3000';
 
 // Create transporter
 const transporter = nodemailer.createTransport(EMAIL_CONFIG);
@@ -31,6 +31,20 @@ export async function sendVerificationEmail(
   firstName?: string
 ): Promise<EmailResult> {
   try {
+    // Skip email sending in development if configured
+    if (process.env.SKIP_EMAIL_SENDING === 'true') {
+      console.log(
+        `[DEV] Would send verification email to ${email} with token: ${token}`
+      );
+      console.log(
+        `[DEV] Verification URL: ${BASE_URL}/auth/verify-email?token=${token}`
+      );
+      return {
+        success: true,
+        message: 'Verification email sent successfully (development mode)',
+      };
+    }
+
     const verificationUrl = `${BASE_URL}/auth/verify-email?token=${token}`;
 
     const mailOptions = {
@@ -110,6 +124,20 @@ export async function sendPasswordResetEmail(
   firstName?: string
 ): Promise<EmailResult> {
   try {
+    // Skip email sending in development if configured
+    if (process.env.SKIP_EMAIL_SENDING === 'true') {
+      console.log(
+        `[DEV] Would send password reset email to ${email} with token: ${token}`
+      );
+      console.log(
+        `[DEV] Reset URL: ${BASE_URL}/auth/reset-password?token=${token}`
+      );
+      return {
+        success: true,
+        message: 'Password reset email sent successfully (development mode)',
+      };
+    }
+
     const resetUrl = `${BASE_URL}/auth/reset-password?token=${token}`;
 
     const mailOptions = {
