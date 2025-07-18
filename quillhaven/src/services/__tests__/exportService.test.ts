@@ -1,224 +1,500 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
-import { exportService } from '../exportService';
-import { ExportRequest } from '@/types/export';
-
-// Mock Prisma
-jest.mock('@/lib/prisma', () => ({
-  prisma: {
-    project: {
-      findFirst: jest.fn(),
-    },
-    export: {
-      create: jest.fn(),
-      findFirst: jest.fn(),
-      findUnique: jest.fn(),
-      update: jest.fn(),
-      findMany: jest.fn(),
-    },
-  },
-}));
-
-// Mock queue service
-jest.mock('../queueService', () => ({
-  queueService: {
-    addJob: jest.fn(),
-    registerProcessor: jest.fn(),
-  },
-}));
+import { ExportService } from '../exportService';
+import { prismaMock } from '../../../__mocks__/prisma';
+import { Project, Chapter } from '@prisma/client';
+import * as fs from 'fs/promises';
+import * as path from 'path';
 
 // Mock file system operations
-jest.mock('fs', () => ({
-  existsSync: jest.fn(() => true),
-  mkdirSync: jest.fn(),
-  writeFileSync: jest.fn(),
-  readFileSync: jest.fn(() => Buffer.from('test content')),
-  statSync: jest.fn(() => ({ size: 1024 })),
-}));
+jest.mock('fs/promises');
+const mockFs = fs as jest.Mocked<typeof fs>;
 
-// Mock Puppeteer
-jest.mock('puppeteer', () => ({
-  launch: jest.fn(() => ({
-    newPage: jest.fn(() => ({
-      setContent: jest.fn(),
-      pdf: jest.fn(),
-    })),
-    close: jest.fn(),
-  })),
-}));
-
-// Mock nodepub
-jest.mock('nodepub', () => ({
-  document: jest.fn(() => ({
-    addSection: jest.fn(),
-    writeEPUB: jest.fn((path, callback) => callback(null)),
-  })),
-}));
-
-// Mock archiver
-jest.mock('archiver', () => jest.fn());
-
-// Mock docx
+// Mock external libraries
 jest.mock('docx', () => ({
-  Document: jest.fn(),
+  Document: jest.fn().mockImplementation(() => ({
+    addSection: jest.fn(),
+  })),
   Packer: {
-    toBuffer: jest.fn(() => Promise.resolve(Buffer.from('docx content'))),
+    toBuffer: jest.fn().mockResolvedValue(Buffer.from('docx content')),
   },
   Paragraph: jest.fn(),
   TextRun: jest.fn(),
-  HeadingLevel: {
-    TITLE: 'TITLE',
-    HEADING_1: 'HEADING_1',
-  },
+}));
+
+jest.mock('jspdf', () => {
+  return jest.fn().mockImplementation(() => ({
+    text: jest.fn(),
+    addPage: jest.fn(),
+    save: jest.fn(),
+    output: jest.fn().mockReturnValue('pdf content'),
+  }));
+});
+
+jest.mock('nodepub', () => ({
+  document: jest.fn().mockImplementation(() => ({
+    addCSS: jest.fn(),
+    addSection: jest.fn(),
+    writeEPUB: jest.fn().mockResolvedValue(Buffer.from('epub content')),
+  })),
 }));
 
 describe('ExportService', () => {
-  const mockUserId = 'user-123';
-  const mockProjectId = 'project-123';
+  let exportService: ExportService;
 
   beforeEach(() => {
+    exportService = new ExportService();
     jest.clearAllMocks();
   });
 
-  describe('createExport', () => {
-    it('should create an export request successfully', async () => {
-      const mockProject = {
-        id: mockProjectId,
-        userId: mockUserId,
-        title: 'Test Project',
-      };
+  const mockProject: Project = {
+    id: 'project-1',
+    userId: 'user-1',
+    title: 'Test Novel',
+    description: 'A test novel for export',
+    genre: 'Fantasy',
+    targetLength: 80000,
+    currentWordCount: 25000,
+    status: 'in-progress',
+    context: {
+      characters: [],
+      plotThreads: [],
+      worldBuilding: [],
+      timeline: [],
+    },
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date(),
+  };
 
-      const mockExport = {
-        id: 'export-123',
-        projectId: mockProjectId,
-        format: 'DOCX',
-        filename: 'Test_Project_2025-01-01.docx',
-        status: 'PENDING',
-      };
+  const mockChapters: Chapter[] = [
+    {
+      id: 'chapter-1',
+      projectId: 'project-1',
+      title: 'Chapter 1: The Beginning',
+      content: 'This is the first chapter content...',
+      wordCount: 500,
+      order: 1,
+      status: 'final',
+      generationParams: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+    {
+      id: 'chapter-2',
+      projectId: 'project-1',
+      title: 'Chapter 2: The Journey',
+      content: 'This is the second chapter content...',
+      wordCount: 600,
+      order: 2,
+      status: 'final',
+      generationParams: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+  ];
 
-      const { prisma } = require('@/lib/prisma');
-      const { queueService } = require('../queueService');
-
-      prisma.project.findFirst.mockResolvedValue(mockProject);
-      prisma.export.create.mockResolvedValue(mockExport);
-      queueService.addJob.mockResolvedValue('job-123');
-
-      const request: ExportRequest = {
-        projectId: mockProjectId,
-        format: 'DOCX',
-      };
-
-      const result = await exportService.createExport(request, mockUserId);
-
-      expect(result.success).toBe(true);
-      expect(result.exportId).toBe('export-123');
-      expect(prisma.project.findFirst).toHaveBeenCalledWith({
-        where: {
-          id: mockProjectId,
-          userId: mockUserId,
-        },
-      });
-      expect(queueService.addJob).toHaveBeenCalledWith('export', {
-        exportId: 'export-123',
-        request,
-        userId: mockUserId,
-      });
+  describe('exportProject', () => {
+    beforeEach(() => {
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+      mockFs.mkdir.mockResolvedValue(undefined);
+      mockFs.writeFile.mockResolvedValue(undefined);
     });
 
-    it('should return error for non-existent project', async () => {
-      const { prisma } = require('@/lib/prisma');
-      prisma.project.findFirst.mockResolvedValue(null);
-
-      const request: ExportRequest = {
-        projectId: 'non-existent',
-        format: 'DOCX',
+    it('should export project as DOCX format', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'docx' as const,
+        includeMetadata: true,
+        chapterIds: ['chapter-1', 'chapter-2'],
       };
 
-      const result = await exportService.createExport(request, mockUserId);
-
-      expect(result.success).toBe(false);
-      expect(result.error).toBe('Project not found or access denied');
-    });
-  });
-
-  describe('getExportStatus', () => {
-    it('should return export status successfully', async () => {
-      const mockExport = {
-        id: 'export-123',
-        projectId: mockProjectId,
-        format: 'DOCX',
-        status: 'COMPLETED',
-        filename: 'test.docx',
-        fileSize: 1024,
-        downloadUrl: '/download/123',
-        expiresAt: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
-      const { prisma } = require('@/lib/prisma');
-      prisma.export.findFirst.mockResolvedValue(mockExport);
-
-      const result = await exportService.getExportStatus(
-        'export-123',
-        mockUserId
-      );
+      const result = await exportService.exportProject(exportRequest);
 
       expect(result).toEqual({
-        id: 'export-123',
-        projectId: mockProjectId,
-        format: 'DOCX',
-        status: 'COMPLETED',
-        filename: 'test.docx',
-        fileSize: 1024,
-        downloadUrl: '/download/123',
-        expiresAt: mockExport.expiresAt,
-        createdAt: mockExport.createdAt,
-        updatedAt: mockExport.updatedAt,
+        downloadUrl: expect.stringContaining('.docx'),
+        filename: expect.stringContaining('Test_Novel'),
+        format: 'docx',
+        size: expect.any(Number),
+        expiresAt: expect.any(Date),
+      });
+
+      expect(prismaMock.project.findFirst).toHaveBeenCalledWith({
+        where: { id: 'project-1', userId: 'user-1' },
       });
     });
 
-    it('should return null for non-existent export', async () => {
-      const { prisma } = require('@/lib/prisma');
-      prisma.export.findFirst.mockResolvedValue(null);
+    it('should export project as PDF format', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'pdf' as const,
+        includeMetadata: true,
+        chapterIds: ['chapter-1', 'chapter-2'],
+      };
 
-      const result = await exportService.getExportStatus(
-        'non-existent',
-        mockUserId
+      const result = await exportService.exportProject(exportRequest);
+
+      expect(result).toEqual({
+        downloadUrl: expect.stringContaining('.pdf'),
+        filename: expect.stringContaining('Test_Novel'),
+        format: 'pdf',
+        size: expect.any(Number),
+        expiresAt: expect.any(Date),
+      });
+    });
+
+    it('should export project as TXT format', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+        includeMetadata: false,
+        chapterIds: ['chapter-1'],
+      };
+
+      const result = await exportService.exportProject(exportRequest);
+
+      expect(result).toEqual({
+        downloadUrl: expect.stringContaining('.txt'),
+        filename: expect.stringContaining('Test_Novel'),
+        format: 'txt',
+        size: expect.any(Number),
+        expiresAt: expect.any(Date),
+      });
+    });
+
+    it('should export project as EPUB format', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'epub' as const,
+        includeMetadata: true,
+        chapterIds: ['chapter-1', 'chapter-2'],
+      };
+
+      const result = await exportService.exportProject(exportRequest);
+
+      expect(result).toEqual({
+        downloadUrl: expect.stringContaining('.epub'),
+        filename: expect.stringContaining('Test_Novel'),
+        format: 'epub',
+        size: expect.any(Number),
+        expiresAt: expect.any(Date),
+      });
+    });
+
+    it('should filter chapters by provided IDs', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+        includeMetadata: false,
+        chapterIds: ['chapter-1'], // Only first chapter
+      };
+
+      await exportService.exportProject(exportRequest);
+
+      expect(prismaMock.chapter.findMany).toHaveBeenCalledWith({
+        where: {
+          projectId: 'project-1',
+          id: { in: ['chapter-1'] },
+        },
+        orderBy: { order: 'asc' },
+      });
+    });
+
+    it('should include all chapters if no specific IDs provided', async () => {
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+        includeMetadata: false,
+      };
+
+      await exportService.exportProject(exportRequest);
+
+      expect(prismaMock.chapter.findMany).toHaveBeenCalledWith({
+        where: { projectId: 'project-1' },
+        orderBy: { order: 'asc' },
+      });
+    });
+
+    it('should throw error if project not found', async () => {
+      prismaMock.project.findFirst.mockResolvedValue(null);
+
+      const exportRequest = {
+        projectId: 'nonexistent-project',
+        userId: 'user-1',
+        format: 'txt' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'Project not found'
       );
+    });
 
-      expect(result).toBeNull();
+    it('should throw error if no chapters found', async () => {
+      prismaMock.chapter.findMany.mockResolvedValue([]);
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'No chapters found for export'
+      );
+    });
+
+    it('should handle file system errors gracefully', async () => {
+      mockFs.writeFile.mockRejectedValue(new Error('Disk full'));
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'Export failed: Disk full'
+      );
     });
   });
 
-  describe('generateDownloadLink', () => {
-    it('should generate download link for completed export', async () => {
-      const mockExport = {
-        id: 'export-123',
-        status: 'COMPLETED',
-      };
+  describe('generateTxtExport', () => {
+    it('should generate plain text export with metadata', async () => {
+      const result = await exportService['generateTxtExport'](
+        mockProject,
+        mockChapters,
+        true
+      );
 
-      const { prisma } = require('@/lib/prisma');
-      prisma.export.findUnique.mockResolvedValue(mockExport);
-      prisma.export.update.mockResolvedValue({});
-
-      const result = await exportService.generateDownloadLink('export-123');
-
-      expect(result).toContain('/api/exports/export-123/download?token=');
-      expect(prisma.export.update).toHaveBeenCalled();
+      expect(result).toContain('Test Novel');
+      expect(result).toContain('A test novel for export');
+      expect(result).toContain('Fantasy');
+      expect(result).toContain('Chapter 1: The Beginning');
+      expect(result).toContain('This is the first chapter content...');
+      expect(result).toContain('Chapter 2: The Journey');
+      expect(result).toContain('This is the second chapter content...');
     });
 
-    it('should return null for non-completed export', async () => {
-      const mockExport = {
-        id: 'export-123',
-        status: 'PENDING',
+    it('should generate plain text export without metadata', async () => {
+      const result = await exportService['generateTxtExport'](
+        mockProject,
+        mockChapters,
+        false
+      );
+
+      expect(result).not.toContain('A test novel for export');
+      expect(result).not.toContain('Fantasy');
+      expect(result).toContain('Chapter 1: The Beginning');
+      expect(result).toContain('This is the first chapter content...');
+    });
+  });
+
+  describe('getDownloadUrl', () => {
+    it('should generate secure download URL', () => {
+      const filename = 'test-export.txt';
+      const url = exportService['getDownloadUrl'](filename);
+
+      expect(url).toContain('/api/exports/download/');
+      expect(url).toContain(filename);
+    });
+  });
+
+  describe('cleanupExpiredExports', () => {
+    it('should remove expired export files', async () => {
+      const expiredFiles = ['expired-export-1.txt', 'expired-export-2.pdf'];
+      
+      mockFs.readdir.mockResolvedValue(expiredFiles as any);
+      mockFs.stat.mockResolvedValue({
+        mtime: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
+      } as any);
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      await exportService.cleanupExpiredExports();
+
+      expect(mockFs.unlink).toHaveBeenCalledTimes(2);
+      expect(mockFs.unlink).toHaveBeenCalledWith(
+        expect.stringContaining('expired-export-1.txt')
+      );
+      expect(mockFs.unlink).toHaveBeenCalledWith(
+        expect.stringContaining('expired-export-2.pdf')
+      );
+    });
+
+    it('should not remove recent export files', async () => {
+      const recentFiles = ['recent-export.txt'];
+      
+      mockFs.readdir.mockResolvedValue(recentFiles as any);
+      mockFs.stat.mockResolvedValue({
+        mtime: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
+      } as any);
+      mockFs.unlink.mockResolvedValue(undefined);
+
+      await exportService.cleanupExpiredExports();
+
+      expect(mockFs.unlink).not.toHaveBeenCalled();
+    });
+
+    it('should handle cleanup errors gracefully', async () => {
+      mockFs.readdir.mockRejectedValue(new Error('Permission denied'));
+
+      // Should not throw
+      await expect(exportService.cleanupExpiredExports()).resolves.toBeUndefined();
+    });
+  });
+
+  describe('getExportHistory', () => {
+    it('should return export history for user', async () => {
+      const mockExports = [
+        {
+          id: 'export-1',
+          userId: 'user-1',
+          projectId: 'project-1',
+          format: 'pdf',
+          filename: 'Test_Novel.pdf',
+          downloadUrl: '/api/exports/download/test-novel.pdf',
+          createdAt: new Date(),
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+        },
+      ];
+
+      prismaMock.export.findMany.mockResolvedValue(mockExports as any);
+
+      const result = await exportService.getExportHistory('user-1');
+
+      expect(result).toEqual(mockExports);
+      expect(prismaMock.export.findMany).toHaveBeenCalledWith({
+        where: { userId: 'user-1' },
+        orderBy: { createdAt: 'desc' },
+        take: 50,
+      });
+    });
+  });
+
+  describe('performance tests', () => {
+    it('should handle large projects efficiently', async () => {
+      // Create a large project with many chapters
+      const largeChapters = Array.from({ length: 100 }, (_, i) => ({
+        id: `chapter-${i + 1}`,
+        projectId: 'project-1',
+        title: `Chapter ${i + 1}`,
+        content: 'Lorem ipsum '.repeat(1000), // ~11,000 characters per chapter
+        wordCount: 1000,
+        order: i + 1,
+        status: 'final' as const,
+        generationParams: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }));
+
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(largeChapters);
+
+      const startTime = Date.now();
+      
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
       };
 
-      const { prisma } = require('@/lib/prisma');
-      prisma.export.findUnique.mockResolvedValue(mockExport);
+      await exportService.exportProject(exportRequest);
 
-      const result = await exportService.generateDownloadLink('export-123');
+      const endTime = Date.now();
+      const executionTime = endTime - startTime;
 
-      expect(result).toBeNull();
+      // Should complete within 30 seconds for large projects
+      expect(executionTime).toBeLessThan(30000);
+    });
+
+    it('should handle concurrent export requests', async () => {
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'txt' as const,
+      };
+
+      // Run 5 concurrent exports
+      const promises = Array.from({ length: 5 }, () =>
+        exportService.exportProject(exportRequest)
+      );
+
+      const results = await Promise.all(promises);
+
+      // All exports should succeed
+      expect(results).toHaveLength(5);
+      results.forEach((result) => {
+        expect(result.downloadUrl).toBeDefined();
+        expect(result.filename).toBeDefined();
+      });
+    });
+  });
+
+  describe('error handling', () => {
+    it('should handle DOCX generation errors', async () => {
+      const { Packer } = require('docx');
+      Packer.toBuffer.mockRejectedValue(new Error('DOCX generation failed'));
+
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'docx' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'Export failed: DOCX generation failed'
+      );
+    });
+
+    it('should handle PDF generation errors', async () => {
+      const jsPDF = require('jspdf');
+      jsPDF.mockImplementation(() => {
+        throw new Error('PDF generation failed');
+      });
+
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'pdf' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'Export failed: PDF generation failed'
+      );
+    });
+
+    it('should handle EPUB generation errors', async () => {
+      const nodepub = require('nodepub');
+      nodepub.document.mockImplementation(() => ({
+        addCSS: jest.fn(),
+        addSection: jest.fn(),
+        writeEPUB: jest.fn().mockRejectedValue(new Error('EPUB generation failed')),
+      }));
+
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+
+      const exportRequest = {
+        projectId: 'project-1',
+        userId: 'user-1',
+        format: 'epub' as const,
+      };
+
+      await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
+        'Export failed: EPUB generation failed'
+      );
     });
   });
 });

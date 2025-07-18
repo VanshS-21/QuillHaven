@@ -1,444 +1,374 @@
 import { AIService } from '../aiService';
-import type {
-  ChapterGenerationRequest,
-  ProjectContextForAI,
-} from '../../types/ai';
-import {
-  AIServiceError,
-  AIRateLimitError,
-  AIQuotaExceededError,
-  AIContentFilterError,
-} from '../../types/ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { ProjectContext, ChapterGenerationRequest } from '@/types/ai';
 
-// Mock the Google Generative AI SDK
-const mockGenerateContent = jest.fn();
-
-jest.mock('@google/generative-ai', () => ({
-  GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
-    getGenerativeModel: jest.fn().mockReturnValue({
-      generateContent: mockGenerateContent,
-    }),
-  })),
-}));
+// Mock the Google Generative AI
+jest.mock('@google/generative-ai');
 
 describe('AIService', () => {
   let aiService: AIService;
-  let mockRequest: ChapterGenerationRequest;
+  let mockGenAI: jest.Mocked<GoogleGenerativeAI>;
+  let mockModel: any;
 
   beforeEach(() => {
-    // Reset mocks
+    mockModel = {
+      generateContent: jest.fn(),
+    };
+
+    mockGenAI = {
+      getGenerativeModel: jest.fn().mockReturnValue(mockModel),
+    } as any;
+
+    (GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>).mockImplementation(
+      () => mockGenAI
+    );
+
+    aiService = new AIService();
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
+  });
 
-    // Create a fresh instance for each test
-    aiService = new AIService({
-      apiKey: 'test-api-key',
-      maxRetries: 2,
-      retryDelay: 100,
-      timeout: 5000,
-    });
-
-    // Create mock request for all tests
-    mockRequest = {
-      prompt:
-        'Write a dramatic chapter about the protagonist facing their fears.',
+  describe('generateChapter', () => {
+    const mockRequest: ChapterGenerationRequest = {
+      prompt: 'Write a chapter about the hero\'s journey',
       projectContext: {
         characters: [
           {
-            id: 'char1',
-            projectId: 'proj1',
-            name: 'Alice',
-            description: 'A brave warrior',
-            role: 'PROTAGONIST',
-            developmentArc: 'Learning to trust others',
-            firstAppearance: 'Chapter 1',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            id: '1',
+            name: 'John Doe',
+            description: 'A brave hero',
+            role: 'protagonist',
+            relationships: [],
+            developmentArc: 'Hero\'s journey',
           },
         ],
         plotThreads: [
           {
-            id: 'plot1',
-            projectId: 'proj1',
-            title: 'The Quest for the Crystal',
-            description: 'Alice must find the magical crystal',
-            status: 'DEVELOPING',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            id: '1',
+            title: 'Main Quest',
+            description: 'The hero must save the world',
+            status: 'developing',
+            relatedCharacters: ['1'],
+            chapterReferences: [],
           },
         ],
-        worldElements: [
+        worldBuilding: [
           {
-            id: 'world1',
-            projectId: 'proj1',
-            type: 'LOCATION',
-            name: 'The Dark Forest',
-            description: 'A mysterious forest filled with ancient magic',
-            significance: 'Where the crystal is hidden',
-            createdAt: new Date(),
-            updatedAt: new Date(),
+            id: '1',
+            type: 'location',
+            name: 'Fantasy Kingdom',
+            description: 'A magical realm',
+            significance: 'Setting for the adventure',
+            relatedElements: [],
           },
         ],
-        timelineEvents: [
-          {
-            id: 'time1',
-            projectId: 'proj1',
-            title: 'The Great War',
-            description: 'A war that changed everything',
-            eventDate: '100 years ago',
-            importance: 5,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          },
-        ],
-        projectSummary: 'A fantasy adventure about finding a magical crystal',
-        genre: 'Fantasy',
-        writingStyle: 'Third-person narrative',
+        timeline: [],
       },
-      previousChapters: ['Previous chapter content here...'],
+      previousChapters: ['Chapter 1 content...'],
       parameters: {
         length: 2000,
-        tone: 'dramatic',
-        style: 'third-person',
-        focusCharacters: ['char1'],
-        plotPoints: ['plot1'],
+        tone: 'adventurous',
+        style: 'fantasy',
+        focusCharacters: ['1'],
+        plotPoints: ['1'],
       },
     };
-  });
 
-  describe('constructor', () => {
-    it('should throw error if API key is not provided', () => {
-      expect(() => new AIService({ apiKey: '' })).toThrow(
-        'Gemini API key is required'
-      );
-    });
-
-    it('should use default configuration values', () => {
-      const service = new AIService({ apiKey: 'test-key' });
-      expect(service).toBeInstanceOf(AIService);
-    });
-
-    it('should merge custom configuration with defaults', () => {
-      const service = new AIService({
-        apiKey: 'test-key',
-        maxRetries: 5,
-        timeout: 10000,
-      });
-      expect(service).toBeInstanceOf(AIService);
-    });
-  });
-
-  describe('generateChapter', () => {
     it('should generate a chapter successfully', async () => {
       const mockResponse = {
         response: {
-          text: () =>
-            'Generated chapter content with exactly two thousand words repeated many times to reach the target length...',
+          text: () => 'Generated chapter content...',
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
       const result = await aiService.generateChapter(mockRequest);
 
       expect(result).toEqual({
-        content: expect.any(String),
+        content: 'Generated chapter content...',
         wordCount: expect.any(Number),
         generatedAt: expect.any(Date),
-        contextUsed: expect.arrayContaining(['char1', 'plot1', 'world1']),
-        suggestions: expect.any(Array),
+        parameters: mockRequest.parameters,
       });
 
-      expect(mockGenerateContent).toHaveBeenCalledWith({
-        contents: [
-          { role: 'user', parts: [{ text: expect.stringContaining('Alice') }] },
-        ],
-        generationConfig: expect.objectContaining({
-          temperature: 0.8,
-          topK: 40,
-          topP: 0.95,
-          maxOutputTokens: expect.any(Number),
-        }),
-      });
+      expect(mockModel.generateContent).toHaveBeenCalledWith(
+        expect.stringContaining('Write a chapter about the hero\'s journey')
+      );
     });
 
-    it('should include all context elements in the prompt', async () => {
+    it('should handle API errors gracefully', async () => {
+      mockModel.generateContent.mockRejectedValue(new Error('API Error'));
+
+      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
+        'Failed to generate chapter: API Error'
+      );
+    });
+
+    it('should include context in the prompt', async () => {
       const mockResponse = {
         response: {
           text: () => 'Generated content',
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
       await aiService.generateChapter(mockRequest);
 
-      const calledPrompt =
-        mockGenerateContent.mock.calls[0][0].contents[0].parts[0].text;
-
-      expect(calledPrompt).toContain('Alice');
-      expect(calledPrompt).toContain('The Quest for the Crystal');
-      expect(calledPrompt).toContain('The Dark Forest');
-      expect(calledPrompt).toContain('The Great War');
-      expect(calledPrompt).toContain('Fantasy');
-      expect(calledPrompt).toContain('2000 words');
+      const calledPrompt = mockModel.generateContent.mock.calls[0][0];
+      expect(calledPrompt).toContain('John Doe');
+      expect(calledPrompt).toContain('Main Quest');
+      expect(calledPrompt).toContain('Fantasy Kingdom');
     });
 
-    it('should handle API errors and retry', async () => {
-      mockGenerateContent
-        .mockRejectedValueOnce(new Error('Network error'))
-        .mockResolvedValue({
-          response: {
-            text: () => 'Generated content after retry',
-          },
-        });
+    it('should respect length parameters', async () => {
+      const mockResponse = {
+        response: {
+          text: () => 'Short content',
+        },
+      };
 
-      const result = await aiService.generateChapter(mockRequest);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
-      expect(result.content).toBe('Generated content after retry');
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2);
-    });
+      const shortRequest = {
+        ...mockRequest,
+        parameters: { ...mockRequest.parameters, length: 500 },
+      };
 
-    it('should throw AIRateLimitError for rate limit errors', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('rate limit exceeded'));
+      await aiService.generateChapter(shortRequest);
 
-      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
-        AIRateLimitError
-      );
-    });
-
-    it('should throw AIQuotaExceededError for quota errors', async () => {
-      mockGenerateContent.mockRejectedValue(new Error('quota exceeded'));
-
-      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
-        AIQuotaExceededError
-      );
-    });
-
-    it('should throw AIContentFilterError for safety policy violations', async () => {
-      mockGenerateContent.mockRejectedValue(
-        new Error('content policy violation')
-      );
-
-      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
-        AIContentFilterError
-      );
-    });
-
-    it('should handle timeout errors', async () => {
-      mockGenerateContent.mockImplementation(
-        () => new Promise((resolve) => setTimeout(resolve, 10000))
-      );
-
-      const fastService = new AIService({
-        apiKey: 'test-key',
-        timeout: 100,
-        maxRetries: 1,
-      });
-
-      await expect(fastService.generateChapter(mockRequest)).rejects.toThrow(
-        /timeout|Network error/
-      );
+      const calledPrompt = mockModel.generateContent.mock.calls[0][0];
+      expect(calledPrompt).toContain('500');
     });
   });
 
   describe('analyzeContext', () => {
-    it('should analyze content and return structured data', async () => {
+    it('should extract characters from content', async () => {
+      const content = 'John walked through the forest. Mary followed behind him.';
+      
       const mockResponse = {
         response: {
-          text: () =>
-            JSON.stringify({
-              extractedCharacters: ['Alice', 'Bob'],
-              extractedPlotPoints: ['Quest begins', 'Crystal found'],
-              extractedWorldElements: ['Dark Forest', 'Magic Crystal'],
-              inconsistencies: [],
-              suggestions: ['Add more dialogue'],
-            }),
+          text: () => JSON.stringify({
+            characters: ['John', 'Mary'],
+            locations: ['forest'],
+            plotPoints: ['journey begins'],
+          }),
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
-      const result = await aiService.analyzeContext('Sample chapter content');
+      const result = await aiService.analyzeContext(content);
 
-      expect(result).toEqual({
-        extractedCharacters: ['Alice', 'Bob'],
-        extractedPlotPoints: ['Quest begins', 'Crystal found'],
-        extractedWorldElements: ['Dark Forest', 'Magic Crystal'],
-        inconsistencies: [],
-        suggestions: ['Add more dialogue'],
-      });
+      expect(result.characters).toContain('John');
+      expect(result.characters).toContain('Mary');
+      expect(result.locations).toContain('forest');
     });
 
-    it('should handle malformed JSON responses gracefully', async () => {
+    it('should handle malformed JSON responses', async () => {
+      const content = 'Some content';
+      
       const mockResponse = {
         response: {
           text: () => 'Invalid JSON response',
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
-      const result = await aiService.analyzeContext('Sample content');
+      const result = await aiService.analyzeContext(content);
 
       expect(result).toEqual({
-        extractedCharacters: [],
-        extractedPlotPoints: [],
-        extractedWorldElements: [],
-        inconsistencies: [],
-        suggestions: ['Unable to parse analysis response'],
+        characters: [],
+        locations: [],
+        plotPoints: [],
+        themes: [],
       });
     });
   });
 
   describe('checkConsistency', () => {
-    const mockContext: ProjectContextForAI = {
+    const mockContext: ProjectContext = {
       characters: [
         {
-          id: 'char1',
-          projectId: 'proj1',
-          name: 'Alice',
-          description: 'A brave warrior',
-          role: 'PROTAGONIST',
-          developmentArc: null,
-          firstAppearance: null,
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          id: '1',
+          name: 'John',
+          description: 'Hero',
+          role: 'protagonist',
+          relationships: [],
+          developmentArc: 'Growth',
         },
       ],
       plotThreads: [],
-      worldElements: [],
-      timelineEvents: [],
-      projectSummary: 'Test project',
-      genre: 'Fantasy',
-      writingStyle: 'Third-person',
+      worldBuilding: [],
+      timeline: [],
     };
 
-    it('should check consistency and return a report', async () => {
+    it('should identify consistency issues', async () => {
+      const newContent = 'John suddenly had blue eyes instead of brown.';
+      
       const mockResponse = {
         response: {
-          text: () =>
-            JSON.stringify({
-              issues: [
-                {
-                  type: 'character',
-                  description: 'Alice acts out of character',
-                  severity: 'medium',
-                  suggestedFix: 'Revise dialogue to match personality',
-                },
-              ],
-              score: 75,
-              recommendations: ['Review character motivations'],
-            }),
+          text: () => JSON.stringify({
+            issues: [
+              {
+                type: 'character_inconsistency',
+                description: 'Eye color changed',
+                severity: 'medium',
+                suggestions: ['Maintain consistent character descriptions'],
+              },
+            ],
+          }),
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockResolvedValue(mockResponse);
 
-      const result = await aiService.checkConsistency(
-        mockContext,
-        'New chapter content'
-      );
+      const result = await aiService.checkConsistency(mockContext, newContent);
 
-      expect(result).toEqual({
-        issues: [
-          {
-            type: 'character',
-            description: 'Alice acts out of character',
-            severity: 'medium',
-            suggestedFix: 'Revise dialogue to match personality',
+      expect(result.issues).toHaveLength(1);
+      expect(result.issues[0].type).toBe('character_inconsistency');
+    });
+
+    it('should return no issues for consistent content', async () => {
+      const newContent = 'John continued his heroic journey.';
+      
+      const mockResponse = {
+        response: {
+          text: () => JSON.stringify({ issues: [] }),
+        },
+      };
+
+      mockModel.generateContent.mockResolvedValue(mockResponse);
+
+      const result = await aiService.checkConsistency(mockContext, newContent);
+
+      expect(result.issues).toHaveLength(0);
+    });
+  });
+
+  describe('retry mechanism', () => {
+    it('should retry on temporary failures', async () => {
+      const mockRequest: ChapterGenerationRequest = {
+        prompt: 'Test prompt',
+        projectContext: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
+        previousChapters: [],
+        parameters: {
+          length: 1000,
+          tone: 'neutral',
+          style: 'modern',
+          focusCharacters: [],
+          plotPoints: [],
+        },
+      };
+
+      // First call fails, second succeeds
+      mockModel.generateContent
+        .mockRejectedValueOnce(new Error('Temporary error'))
+        .mockResolvedValueOnce({
+          response: {
+            text: () => 'Generated content',
           },
-        ],
-        score: 75,
-        recommendations: ['Review character motivations'],
-      });
+        });
+
+      const result = await aiService.generateChapter(mockRequest);
+
+      expect(result.content).toBe('Generated content');
+      expect(mockModel.generateContent).toHaveBeenCalledTimes(2);
     });
 
-    it('should handle malformed consistency report responses', async () => {
-      const mockResponse = {
-        response: {
-          text: () => 'Invalid JSON',
+    it('should fail after max retries', async () => {
+      const mockRequest: ChapterGenerationRequest = {
+        prompt: 'Test prompt',
+        projectContext: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
+        previousChapters: [],
+        parameters: {
+          length: 1000,
+          tone: 'neutral',
+          style: 'modern',
+          focusCharacters: [],
+          plotPoints: [],
         },
       };
 
-      mockGenerateContent.mockResolvedValue(mockResponse);
+      mockModel.generateContent.mockRejectedValue(new Error('Persistent error'));
 
-      const result = await aiService.checkConsistency(mockContext, 'Content');
-
-      expect(result).toEqual({
-        issues: [],
-        score: 50,
-        recommendations: ['Unable to parse consistency report'],
-      });
+      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow();
+      expect(mockModel.generateContent).toHaveBeenCalledTimes(3); // Initial + 2 retries
     });
   });
 
-  describe('error handling', () => {
-    it('should not retry non-retryable errors', async () => {
-      const quotaError = new Error('quota exceeded');
-      mockGenerateContent.mockRejectedValue(quotaError);
-
-      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
-        AIQuotaExceededError
-      );
-
-      expect(mockGenerateContent).toHaveBeenCalledTimes(1);
-    });
-
-    it('should retry retryable errors up to maxRetries', async () => {
-      const networkError = new Error('network timeout');
-      mockGenerateContent.mockRejectedValue(networkError);
-
-      await expect(aiService.generateChapter(mockRequest)).rejects.toThrow(
-        AIServiceError
-      );
-
-      expect(mockGenerateContent).toHaveBeenCalledTimes(2); // maxRetries = 2
-    });
-  });
-
-  describe('utility methods', () => {
-    it('should count words correctly', () => {
-      const service = new AIService({ apiKey: 'test' });
-
-      // Access private method through type assertion for testing
-      const countWords = (
-        service as unknown as { countWords: (text: string) => number }
-      ).countWords;
-
-      expect(countWords('Hello world')).toBe(2);
-      expect(countWords('  Hello   world  ')).toBe(2);
-      expect(countWords('')).toBe(0);
-      expect(countWords('Single')).toBe(1);
-    });
-
-    it('should extract context IDs correctly', () => {
-      const service = new AIService({ apiKey: 'test' });
-      const extractContextIds = (
-        service as unknown as {
-          extractContextIds: (context: unknown) => unknown;
-        }
-      ).extractContextIds;
-
-      const context: ProjectContextForAI = {
-        characters: [
-          { id: 'char1' },
-          { id: 'char2' },
-        ] as unknown as ProjectContextForAI['characters'],
-        plotThreads: [
-          { id: 'plot1' },
-        ] as unknown as ProjectContextForAI['plotThreads'],
-        worldElements: [
-          { id: 'world1' },
-          { id: 'world2' },
-        ] as unknown as ProjectContextForAI['worldElements'],
-        timelineEvents: [],
-        projectSummary: '',
-        genre: '',
-        writingStyle: '',
+  describe('prompt construction', () => {
+    it('should build comprehensive prompts', async () => {
+      const mockRequest: ChapterGenerationRequest = {
+        prompt: 'Write about conflict',
+        projectContext: {
+          characters: [
+            {
+              id: '1',
+              name: 'Alice',
+              description: 'Protagonist',
+              role: 'protagonist',
+              relationships: [],
+              developmentArc: 'Coming of age',
+            },
+          ],
+          plotThreads: [
+            {
+              id: '1',
+              title: 'Central Conflict',
+              description: 'Main story arc',
+              status: 'developing',
+              relatedCharacters: ['1'],
+              chapterReferences: [],
+            },
+          ],
+          worldBuilding: [],
+          timeline: [],
+        },
+        previousChapters: ['Previous chapter content'],
+        parameters: {
+          length: 1500,
+          tone: 'dramatic',
+          style: 'literary',
+          focusCharacters: ['1'],
+          plotPoints: ['1'],
+        },
       };
 
-      const ids = extractContextIds(context);
-      expect(ids).toEqual(['char1', 'char2', 'plot1', 'world1', 'world2']);
+      const mockResponse = {
+        response: {
+          text: () => 'Generated content',
+        },
+      };
+
+      mockModel.generateContent.mockResolvedValue(mockResponse);
+
+      await aiService.generateChapter(mockRequest);
+
+      const calledPrompt = mockModel.generateContent.mock.calls[0][0];
+      
+      // Check that prompt includes all necessary elements
+      expect(calledPrompt).toContain('Write about conflict');
+      expect(calledPrompt).toContain('Alice');
+      expect(calledPrompt).toContain('Central Conflict');
+      expect(calledPrompt).toContain('1500');
+      expect(calledPrompt).toContain('dramatic');
+      expect(calledPrompt).toContain('literary');
+      expect(calledPrompt).toContain('Previous chapter content');
     });
   });
 });

@@ -1,5 +1,12 @@
 require('@testing-library/jest-dom');
 
+// Configure React Testing Library
+import { configure } from '@testing-library/react';
+
+configure({
+  testIdAttribute: 'data-testid',
+});
+
 // Mock environment variables for tests
 process.env.GEMINI_API_KEY = 'test-api-key';
 process.env.NODE_ENV = 'test';
