@@ -438,3 +438,43 @@ export async function cleanupExpiredSessions(): Promise<void> {
     console.error('Session cleanup error:', error);
   }
 }
+/**
+ * Verify authentication from request headers
+ */
+export async function verifyAuth(request: Request): Promise<AuthResult> {
+  try {
+    const authHeader = request.headers.get('authorization');
+
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return {
+        success: false,
+        message: 'No valid authorization header found',
+      };
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    const user = await getUserFromToken(token);
+
+    if (!user) {
+      return {
+        success: false,
+        message: 'Invalid or expired token',
+      };
+    }
+
+    // Remove password hash from response
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { passwordHash: _, ...userWithoutPassword } = user;
+
+    return {
+      success: true,
+      user: userWithoutPassword,
+    };
+  } catch (error) {
+    console.error('Auth verification error:', error);
+    return {
+      success: false,
+      message: 'Authentication failed',
+    };
+  }
+}

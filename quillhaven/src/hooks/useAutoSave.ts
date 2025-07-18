@@ -28,7 +28,7 @@ export function useAutoSave<T>(
       initialDataRef.current = data;
       isFirstRender.current = false;
     }
-  }, []);
+  }, [data]);
 
   // Auto-save when debounced data changes
   useEffect(() => {

@@ -39,7 +39,9 @@ export function ChapterEditor({
   const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<
+    import('monaco-editor').editor.IStandaloneCodeEditor | null
+  >(null);
 
   // Count words in content
   const countWords = useCallback((text: string): number => {
@@ -105,7 +107,10 @@ export function ChapterEditor({
 
   // Handle editor mount
   const handleEditorDidMount = useCallback(
-    (editor: any) => {
+    (
+      editor: import('monaco-editor').editor.IStandaloneCodeEditor,
+      monaco: typeof import('monaco-editor')
+    ) => {
       editorRef.current = editor;
 
       // Configure editor options
@@ -122,7 +127,7 @@ export function ChapterEditor({
 
       // Add keyboard shortcuts
       editor.addCommand(
-        editor.KeyMod.CtrlCmd | editor.KeyCode.KeyS,
+        monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS,
         handleSave
       );
     },
