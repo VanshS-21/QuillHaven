@@ -2,6 +2,7 @@
  * Integration test for export functionality
  * This test verifies the complete export workflow
  */
+/* eslint-disable @typescript-eslint/no-require-imports */
 
 // Mock external dependencies BEFORE imports
 jest.mock('@/lib/prisma', () => ({
@@ -23,8 +24,8 @@ jest.mock('@/lib/prisma', () => ({
       deleteMany: jest.fn(),
       findUnique: jest.fn(),
       fields: {
-        maxAttempts: 'maxAttempts'
-      }
+        maxAttempts: 'maxAttempts',
+      },
     },
   },
 }));
@@ -91,7 +92,6 @@ jest.mock('../queueService', () => ({
 }));
 
 import { exportService } from '../exportService';
-import { queueService } from '../queueService';
 import { ExportRequest } from '@/types/export';
 
 describe('Export Integration', () => {
@@ -112,7 +112,7 @@ describe('Export Integration', () => {
       genre: 'Fiction',
       user: {
         firstName: 'John',
-        lastName: 'Doe'
+        lastName: 'Doe',
       },
       chapters: [
         {
@@ -120,16 +120,17 @@ describe('Export Integration', () => {
           title: 'Chapter 1: The Beginning',
           content: 'Once upon a time...\n\nIn a land far away...',
           order: 1,
-          wordCount: 100
+          wordCount: 100,
         },
         {
           id: 'chapter-2',
           title: 'Chapter 2: The Journey',
-          content: 'The hero set out on a journey...\n\nMany challenges awaited...',
+          content:
+            'The hero set out on a journey...\n\nMany challenges awaited...',
           order: 2,
-          wordCount: 150
-        }
-      ]
+          wordCount: 150,
+        },
+      ],
     };
 
     const mockExport = {
@@ -138,14 +139,17 @@ describe('Export Integration', () => {
       format: 'DOCX',
       filename: 'Test_Novel_2025-01-01.docx',
       status: 'PENDING',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
     };
 
     // Setup mocks
     const { prisma } = require('@/lib/prisma');
     prisma.project.findFirst.mockResolvedValue(mockProject);
     prisma.export.create.mockResolvedValue(mockExport);
-    prisma.export.update.mockResolvedValue({ ...mockExport, status: 'COMPLETED' });
+    prisma.export.update.mockResolvedValue({
+      ...mockExport,
+      status: 'COMPLETED',
+    });
 
     // Test export creation
     const request: ExportRequest = {
@@ -154,8 +158,8 @@ describe('Export Integration', () => {
       includeMetadata: true,
       metadata: {
         author: 'John Doe',
-        description: 'A test novel for integration testing'
-      }
+        description: 'A test novel for integration testing',
+      },
     };
 
     const result = await exportService.createExport(request, mockUserId);
@@ -170,8 +174,8 @@ describe('Export Integration', () => {
         format: 'DOCX',
         filename: expect.stringContaining('Test_Novel'),
         status: 'PENDING',
-        expiresAt: expect.any(Date)
-      }
+        expiresAt: expect.any(Date),
+      },
     });
   });
 
@@ -181,7 +185,7 @@ describe('Export Integration', () => {
 
     const request: ExportRequest = {
       projectId: 'non-existent',
-      format: 'DOCX'
+      format: 'DOCX',
     };
 
     const result = await exportService.createExport(request, mockUserId);
@@ -193,7 +197,7 @@ describe('Export Integration', () => {
   it('should generate secure download links', async () => {
     const mockExport = {
       id: 'export-123',
-      status: 'COMPLETED'
+      status: 'COMPLETED',
     };
 
     const { prisma } = require('@/lib/prisma');
@@ -218,13 +222,16 @@ describe('Export Integration', () => {
       downloadUrl: null,
       expiresAt: new Date(),
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     const { prisma } = require('@/lib/prisma');
     prisma.export.findFirst.mockResolvedValue(mockExport);
 
-    const status = await exportService.getExportStatus('export-123', mockUserId);
+    const status = await exportService.getExportStatus(
+      'export-123',
+      mockUserId
+    );
 
     expect(status).toEqual({
       id: 'export-123',
@@ -236,17 +243,22 @@ describe('Export Integration', () => {
       downloadUrl: null,
       expiresAt: mockExport.expiresAt,
       createdAt: mockExport.createdAt,
-      updatedAt: mockExport.updatedAt
+      updatedAt: mockExport.updatedAt,
     });
   });
 
   it('should support all export formats', async () => {
-    const formats: Array<'DOCX' | 'PDF' | 'TXT' | 'EPUB'> = ['DOCX', 'PDF', 'TXT', 'EPUB'];
-    
+    const formats: Array<'DOCX' | 'PDF' | 'TXT' | 'EPUB'> = [
+      'DOCX',
+      'PDF',
+      'TXT',
+      'EPUB',
+    ];
+
     const mockProject = {
       id: mockProjectId,
       userId: mockUserId,
-      title: 'Test Project'
+      title: 'Test Project',
     };
 
     const { prisma } = require('@/lib/prisma');
@@ -258,14 +270,14 @@ describe('Export Integration', () => {
         projectId: mockProjectId,
         format,
         filename: `test.${format.toLowerCase()}`,
-        status: 'PENDING'
+        status: 'PENDING',
       };
 
       prisma.export.create.mockResolvedValue(mockExport);
 
       const request: ExportRequest = {
         projectId: mockProjectId,
-        format
+        format,
       };
 
       const result = await exportService.createExport(request, mockUserId);

@@ -21,7 +21,7 @@ export class CleanupService {
     }
 
     const intervalMs = intervalHours * 60 * 60 * 1000;
-    
+
     this.intervalId = setInterval(async () => {
       try {
         await this.runCleanup();
@@ -31,7 +31,7 @@ export class CleanupService {
     }, intervalMs);
 
     // Run initial cleanup
-    this.runCleanup().catch(error => {
+    this.runCleanup().catch((error) => {
       console.error('Initial cleanup error:', error);
     });
   }

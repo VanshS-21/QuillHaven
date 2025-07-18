@@ -23,11 +23,13 @@ The export functionality allows users to export their writing projects in multip
 ## API Endpoints
 
 ### Create Export
+
 ```
 POST /api/projects/{id}/export
 ```
 
 **Request Body:**
+
 ```json
 {
   "format": "DOCX|PDF|TXT|EPUB",
@@ -46,6 +48,7 @@ POST /api/projects/{id}/export
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -54,11 +57,13 @@ POST /api/projects/{id}/export
 ```
 
 ### Get Export Status
+
 ```
 GET /api/exports/{id}
 ```
 
 **Response:**
+
 ```json
 {
   "id": "export-123",
@@ -75,6 +80,7 @@ GET /api/exports/{id}
 ```
 
 ### Download Export
+
 ```
 GET /api/exports/{id}/download?token={token}&expires={timestamp}
 ```
@@ -82,11 +88,13 @@ GET /api/exports/{id}/download?token={token}&expires={timestamp}
 Returns the file with appropriate content-type headers.
 
 ### Get Export History
+
 ```
 GET /api/exports?limit=10
 ```
 
 **Response:**
+
 ```json
 {
   "exports": [
@@ -105,21 +113,25 @@ GET /api/exports?limit=10
 ## Export Formats
 
 ### DOCX
+
 - Uses `docx` library for Microsoft Word format
 - Supports proper heading hierarchy
 - Includes metadata in document properties
 
 ### PDF
+
 - Uses Puppeteer for high-quality PDF generation
 - HTML-based rendering for better formatting
 - Supports page breaks and proper typography
 
 ### TXT
+
 - Plain text format with simple formatting
 - Chapter titles with underlines
 - Paragraph separation
 
 ### EPUB
+
 - Uses `nodepub` library (secure alternative to epub-gen)
 - Proper EPUB structure with chapters
 - Metadata support for e-readers
@@ -127,11 +139,13 @@ GET /api/exports?limit=10
 ## Background Processing
 
 ### Queue System
+
 - Database-based job queue (no Redis dependency)
 - Automatic retry with exponential backoff
 - Job status tracking and error handling
 
 ### Export Processing Flow
+
 1. User creates export request
 2. Export record created in database
 3. Job added to queue
@@ -141,6 +155,7 @@ GET /api/exports?limit=10
 7. Export marked as completed
 
 ### Cleanup
+
 - Expired exports automatically deleted (24-hour default)
 - Old queue jobs cleaned up (7-day retention)
 - Periodic cleanup runs every 24 hours
@@ -148,12 +163,14 @@ GET /api/exports?limit=10
 ## Error Handling
 
 ### Common Errors
+
 - **Project not found**: User doesn't own the project
 - **Export not ready**: Export still processing
 - **Download expired**: Download link has expired
 - **File not found**: Export file was cleaned up
 
 ### Retry Logic
+
 - Failed exports retry up to 3 times
 - Exponential backoff between retries
 - Permanent failure after max attempts
@@ -161,11 +178,13 @@ GET /api/exports?limit=10
 ## Performance Considerations
 
 ### File Size Limits
+
 - Large projects may take longer to process
 - PDF generation is CPU-intensive
 - EPUB generation requires memory for HTML processing
 
 ### Concurrent Processing
+
 - Single queue processor to avoid resource conflicts
 - Jobs processed sequentially
 - Background processing doesn't block API responses
@@ -173,16 +192,19 @@ GET /api/exports?limit=10
 ## Security Measures
 
 ### Access Control
+
 - All operations require authentication
 - Project ownership validation
 - Secure token-based downloads
 
 ### File Security
+
 - Files stored outside web root
 - Time-limited download links
 - Automatic cleanup of expired files
 
 ### Input Validation
+
 - Request data validation with Zod schemas
 - File path sanitization
 - Content sanitization for HTML generation
@@ -190,12 +212,14 @@ GET /api/exports?limit=10
 ## Monitoring and Logging
 
 ### Metrics to Monitor
+
 - Export success/failure rates
 - Processing times by format
 - Queue depth and processing lag
 - File storage usage
 
 ### Error Logging
+
 - Failed export attempts with stack traces
 - Queue processing errors
 - File system errors
@@ -204,6 +228,7 @@ GET /api/exports?limit=10
 ## Future Enhancements
 
 ### Potential Improvements
+
 1. **Batch Exports**: Export multiple projects at once
 2. **Custom Templates**: User-defined export templates
 3. **Cover Images**: Support for book covers in EPUB/PDF
@@ -212,6 +237,7 @@ GET /api/exports?limit=10
 6. **Export Scheduling**: Scheduled exports for regular backups
 
 ### Scalability Considerations
+
 1. **Redis Queue**: Migrate to Redis-based queue for high volume
 2. **File Storage**: Move to cloud storage (AWS S3, etc.)
 3. **Processing Workers**: Multiple worker processes

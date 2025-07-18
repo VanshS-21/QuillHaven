@@ -8,6 +8,7 @@ import {
   BookOpen,
   Calendar,
   TrendingUp,
+  Download,
 } from 'lucide-react';
 import {
   Card,
@@ -27,8 +28,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { ProjectSettings } from './ProjectSettings';
+import { ProjectExporter } from './ProjectExporter';
 import { projectApiService } from '@/services/api/projectApiService';
-import type { Project } from '@/types/database';
+import type { Project, ProjectWithDetails } from '@/types/database';
 
 interface ProjectCardProps {
   project: Project;
@@ -42,8 +44,11 @@ export function ProjectCard({
   onUpdated,
 }: ProjectCardProps) {
   const [showSettings, setShowSettings] = useState(false);
+  const [showExporter, setShowExporter] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [projectDetails, setProjectDetails] =
+    useState<ProjectWithDetails | null>(null);
 
   // Calculate progress percentage
   const progressPercentage =
@@ -109,6 +114,21 @@ export function ProjectCard({
   const handleProjectUpdated = (updatedProject: Project) => {
     onUpdated(updatedProject);
     setShowSettings(false);
+  };
+
+  const handleExportClick = async () => {
+    try {
+      // Load full project details for export
+      const response = await projectApiService.getProject(project.id);
+      if (response.success && response.data) {
+        setProjectDetails(response.data);
+        setShowExporter(true);
+      } else {
+        console.error('Failed to load project details:', response.error);
+      }
+    } catch (error) {
+      console.error('Error loading project details:', error);
+    }
   };
 
   return (
@@ -211,6 +231,17 @@ export function ProjectCard({
               size="sm"
               onClick={(e) => {
                 e.stopPropagation();
+                handleExportClick();
+              }}
+              title="Export Project"
+            >
+              <Download className="h-4 w-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
                 setShowSettings(true);
               }}
             >
@@ -237,6 +268,18 @@ export function ProjectCard({
           open={showSettings}
           onClose={() => setShowSettings(false)}
           onProjectUpdated={handleProjectUpdated}
+        />
+      )}
+
+      {/* Project Exporter Modal */}
+      {showExporter && projectDetails && (
+        <ProjectExporter
+          project={projectDetails}
+          open={showExporter}
+          onClose={() => {
+            setShowExporter(false);
+            setProjectDetails(null);
+          }}
         />
       )}
 

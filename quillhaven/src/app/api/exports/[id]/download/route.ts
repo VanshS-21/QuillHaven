@@ -1,24 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportService } from '@/services/exportService';
-import { verifyAuth } from '@/lib/middleware';
+import { verifyAuth } from '@/lib/auth';
 import * as fs from 'fs';
 import * as path from 'path';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verify authentication
     const authResult = await verifyAuth(request);
     if (!authResult.success || !authResult.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const exportId = params.id;
+    const { id: exportId } = await params;
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');
     const expires = searchParams.get('expires');
@@ -40,13 +37,13 @@ export async function GET(
     }
 
     // Get export status
-    const exportJob = await exportService.getExportStatus(exportId, authResult.user.id);
+    const exportJob = await exportService.getExportStatus(
+      exportId,
+      authResult.user.id
+    );
 
     if (!exportJob) {
-      return NextResponse.json(
-        { error: 'Export not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: 'Export not found' }, { status: 404 });
     }
 
     if (exportJob.status !== 'COMPLETED') {
@@ -58,7 +55,10 @@ export async function GET(
 
     // Construct file path
     const exportDir = path.join(process.cwd(), 'exports');
-    const filePath = path.join(exportDir, `${exportId}.${exportJob.format.toLowerCase()}`);
+    const filePath = path.join(
+      exportDir,
+      `${exportId}.${exportJob.format.toLowerCase()}`
+    );
 
     // Check if file exists
     if (!fs.existsSync(filePath)) {
@@ -74,14 +74,16 @@ export async function GET(
     // Set appropriate headers
     const headers = new Headers();
     headers.set('Content-Type', getContentType(exportJob.format));
-    headers.set('Content-Disposition', `attachment; filename="${exportJob.filename}"`);
+    headers.set(
+      'Content-Disposition',
+      `attachment; filename="${exportJob.filename}"`
+    );
     headers.set('Content-Length', fileBuffer.length.toString());
 
     return new NextResponse(fileBuffer, {
       status: 200,
-      headers
+      headers,
     });
-
   } catch (error) {
     console.error('Export download error:', error);
     return NextResponse.json(

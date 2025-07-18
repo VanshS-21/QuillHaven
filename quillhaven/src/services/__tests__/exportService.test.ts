@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 import { exportService } from '../exportService';
 import { ExportRequest } from '@/types/export';
 
@@ -157,7 +158,10 @@ describe('ExportService', () => {
       const { prisma } = require('@/lib/prisma');
       prisma.export.findFirst.mockResolvedValue(mockExport);
 
-      const result = await exportService.getExportStatus('export-123', mockUserId);
+      const result = await exportService.getExportStatus(
+        'export-123',
+        mockUserId
+      );
 
       expect(result).toEqual({
         id: 'export-123',
@@ -177,7 +181,10 @@ describe('ExportService', () => {
       const { prisma } = require('@/lib/prisma');
       prisma.export.findFirst.mockResolvedValue(null);
 
-      const result = await exportService.getExportStatus('non-existent', mockUserId);
+      const result = await exportService.getExportStatus(
+        'non-existent',
+        mockUserId
+      );
 
       expect(result).toBeNull();
     });

@@ -1,20 +1,18 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from 'docx';
-import { jsPDF } from 'jspdf';
 import * as nodepub from 'nodepub';
-import * as archiver from 'archiver';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import puppeteer from 'puppeteer';
 import { prisma } from '@/lib/prisma';
-import { 
-  ExportRequest, 
-  ExportJob, 
-  ExportContent, 
-  ExportResult, 
+import {
+  ExportRequest,
+  ExportJob,
+  ExportContent,
+  ExportResult,
   ExportMetadata,
   ChapterContent,
-  DownloadLinkOptions 
+  DownloadLinkOptions,
 } from '@/types/export';
 import { queueService } from './queueService';
 
@@ -31,8 +29,12 @@ export class ExportService {
    * Register export processor with queue service
    */
   private registerQueueProcessor(): void {
-    queueService.registerProcessor('export', async (data: any) => {
-      const { exportId, request, userId } = data;
+    queueService.registerProcessor('export', async (data: unknown) => {
+      const { exportId, request, userId } = data as {
+        exportId: string;
+        request: ExportRequest;
+        userId: string;
+      };
       await this.processExport(exportId, request, userId);
     });
   }
@@ -40,14 +42,17 @@ export class ExportService {
   /**
    * Create a new export job
    */
-  async createExport(request: ExportRequest, userId: string): Promise<ExportResult> {
+  async createExport(
+    request: ExportRequest,
+    userId: string
+  ): Promise<ExportResult> {
     try {
       // Validate project ownership
       const project = await prisma.project.findFirst({
         where: {
           id: request.projectId,
-          userId: userId
-        }
+          userId: userId,
+        },
       });
 
       if (!project) {
@@ -61,20 +66,20 @@ export class ExportService {
           format: request.format,
           filename: this.generateFilename(project.title, request.format),
           status: 'PENDING',
-          expiresAt: new Date(Date.now() + ExportService.MAX_FILE_AGE)
-        }
+          expiresAt: new Date(Date.now() + ExportService.MAX_FILE_AGE),
+        },
       });
 
       // Add export job to queue
       await queueService.addJob('export', {
         exportId: exportRecord.id,
         request,
-        userId
+        userId,
       });
 
-      return { 
-        success: true, 
-        exportId: exportRecord.id 
+      return {
+        success: true,
+        exportId: exportRecord.id,
       };
     } catch (error) {
       console.error('Export creation failed:', error);
@@ -85,14 +90,17 @@ export class ExportService {
   /**
    * Get export status and download URL
    */
-  async getExportStatus(exportId: string, userId: string): Promise<ExportJob | null> {
+  async getExportStatus(
+    exportId: string,
+    userId: string
+  ): Promise<ExportJob | null> {
     const exportRecord = await prisma.export.findFirst({
       where: {
         id: exportId,
         project: {
-          userId: userId
-        }
-      }
+          userId: userId,
+        },
+      },
     });
 
     if (!exportRecord) {
@@ -103,22 +111,29 @@ export class ExportService {
       id: exportRecord.id,
       projectId: exportRecord.projectId,
       format: exportRecord.format as 'DOCX' | 'PDF' | 'TXT' | 'EPUB',
-      status: exportRecord.status as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED',
+      status: exportRecord.status as
+        | 'PENDING'
+        | 'PROCESSING'
+        | 'COMPLETED'
+        | 'FAILED',
       filename: exportRecord.filename,
-      fileSize: exportRecord.fileSize,
-      downloadUrl: exportRecord.downloadUrl,
-      expiresAt: exportRecord.expiresAt,
+      fileSize: exportRecord.fileSize || undefined,
+      downloadUrl: exportRecord.downloadUrl || undefined,
+      expiresAt: exportRecord.expiresAt || undefined,
       createdAt: exportRecord.createdAt,
-      updatedAt: exportRecord.updatedAt
+      updatedAt: exportRecord.updatedAt,
     };
   }
 
   /**
    * Generate secure download link
    */
-  async generateDownloadLink(exportId: string, options: DownloadLinkOptions = {}): Promise<string | null> {
+  async generateDownloadLink(
+    exportId: string,
+    options: DownloadLinkOptions = {}
+  ): Promise<string | null> {
     const exportRecord = await prisma.export.findUnique({
-      where: { id: exportId }
+      where: { id: exportId },
     });
 
     if (!exportRecord || exportRecord.status !== 'COMPLETED') {
@@ -126,17 +141,19 @@ export class ExportService {
     }
 
     const token = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + (options.expiresIn || 24 * 60 * 60) * 1000);
-    
+    const expiresAt = new Date(
+      Date.now() + (options.expiresIn || 24 * 60 * 60) * 1000
+    );
+
     const downloadUrl = `/api/exports/${exportId}/download?token=${token}&expires=${expiresAt.getTime()}`;
 
     // Update export record with download URL
     await prisma.export.update({
       where: { id: exportId },
-      data: { 
+      data: {
         downloadUrl,
-        expiresAt
-      }
+        expiresAt,
+      },
     });
 
     return downloadUrl;
@@ -145,16 +162,24 @@ export class ExportService {
   /**
    * Process export job
    */
-  private async processExport(exportId: string, request: ExportRequest, userId: string): Promise<void> {
+  private async processExport(
+    exportId: string,
+    request: ExportRequest,
+    userId: string
+  ): Promise<void> {
     await this.updateExportStatus(exportId, 'PROCESSING');
 
     try {
       // Get export content
       const content = await this.getExportContent(request, userId);
-      
+
       // Generate file based on format
-      const filePath = await this.generateFile(content, request.format, exportId);
-      
+      const filePath = await this.generateFile(
+        content,
+        request.format,
+        exportId
+      );
+
       // Get file size
       const stats = fs.statSync(filePath);
       const fileSize = stats.size;
@@ -168,12 +193,15 @@ export class ExportService {
         data: {
           status: 'COMPLETED',
           fileSize,
-          downloadUrl
-        }
+          downloadUrl,
+        },
       });
-
     } catch (error) {
-      await this.updateExportStatus(exportId, 'FAILED', error instanceof Error ? error.message : 'Unknown error');
+      await this.updateExportStatus(
+        exportId,
+        'FAILED',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
       throw error;
     }
   }
@@ -181,64 +209,75 @@ export class ExportService {
   /**
    * Get content for export
    */
-  private async getExportContent(request: ExportRequest, userId: string): Promise<ExportContent> {
+  private async getExportContent(
+    request: ExportRequest,
+    userId: string
+  ): Promise<ExportContent> {
     const project = await prisma.project.findFirst({
       where: {
         id: request.projectId,
-        userId: userId
+        userId: userId,
       },
       include: {
         chapters: {
-          where: request.chapterIds ? {
-            id: { in: request.chapterIds }
-          } : undefined,
-          orderBy: { order: 'asc' }
+          where: request.chapterIds
+            ? {
+                id: { in: request.chapterIds },
+              }
+            : undefined,
+          orderBy: { order: 'asc' },
         },
         user: {
           select: {
             firstName: true,
-            lastName: true
-          }
-        }
-      }
+            lastName: true,
+          },
+        },
+      },
     });
 
     if (!project) {
       throw new Error('Project not found');
     }
 
-    const chapters: ChapterContent[] = project.chapters.map(chapter => ({
+    const chapters: ChapterContent[] = project.chapters.map((chapter) => ({
       id: chapter.id,
       title: chapter.title,
       content: chapter.content,
       order: chapter.order,
-      wordCount: chapter.wordCount
+      wordCount: chapter.wordCount,
     }));
 
     const metadata: ExportMetadata = {
       title: project.title,
-      author: request.metadata?.author || 
-              (project.user.firstName && project.user.lastName 
-                ? `${project.user.firstName} ${project.user.lastName}` 
-                : undefined),
-      description: request.metadata?.description || project.description || undefined,
+      author:
+        request.metadata?.author ||
+        (project.user.firstName && project.user.lastName
+          ? `${project.user.firstName} ${project.user.lastName}`
+          : undefined),
+      description:
+        request.metadata?.description || project.description || undefined,
       genre: request.metadata?.genre || project.genre,
       language: request.metadata?.language || 'en',
       publishDate: request.metadata?.publishDate || new Date(),
-      version: request.metadata?.version || '1.0'
+      version: request.metadata?.version || '1.0',
     };
 
     return {
       title: project.title,
       chapters,
-      metadata
+      metadata,
     };
   }
 
   /**
    * Generate file based on format
    */
-  private async generateFile(content: ExportContent, format: string, exportId: string): Promise<string> {
+  private async generateFile(
+    content: ExportContent,
+    format: string,
+    exportId: string
+  ): Promise<string> {
     const filename = `${exportId}.${format.toLowerCase()}`;
     const filePath = path.join(ExportService.EXPORT_DIR, filename);
 
@@ -265,14 +304,17 @@ export class ExportService {
   /**
    * Generate DOCX file
    */
-  private async generateDocx(content: ExportContent, filePath: string): Promise<void> {
+  private async generateDocx(
+    content: ExportContent,
+    filePath: string
+  ): Promise<void> {
     const children: Paragraph[] = [];
 
     // Add title
     children.push(
       new Paragraph({
         children: [new TextRun({ text: content.title, bold: true, size: 32 })],
-        heading: HeadingLevel.TITLE
+        heading: HeadingLevel.TITLE,
       })
     );
 
@@ -280,7 +322,12 @@ export class ExportService {
     if (content.metadata.author) {
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: `By ${content.metadata.author}`, italics: true })]
+          children: [
+            new TextRun({
+              text: `By ${content.metadata.author}`,
+              italics: true,
+            }),
+          ],
         })
       );
     }
@@ -292,8 +339,10 @@ export class ExportService {
       // Chapter title
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: chapter.title, bold: true, size: 24 })],
-          heading: HeadingLevel.HEADING_1
+          children: [
+            new TextRun({ text: chapter.title, bold: true, size: 24 }),
+          ],
+          heading: HeadingLevel.HEADING_1,
         })
       );
 
@@ -303,7 +352,7 @@ export class ExportService {
         if (paragraph.trim()) {
           children.push(
             new Paragraph({
-              children: [new TextRun({ text: paragraph.trim() })]
+              children: [new TextRun({ text: paragraph.trim() })],
             })
           );
         }
@@ -313,10 +362,12 @@ export class ExportService {
     }
 
     const doc = new Document({
-      sections: [{
-        properties: {},
-        children
-      }]
+      sections: [
+        {
+          properties: {},
+          children,
+        },
+      ],
     });
 
     const buffer = await Packer.toBuffer(doc);
@@ -326,20 +377,23 @@ export class ExportService {
   /**
    * Generate PDF file using Puppeteer (more secure and flexible)
    */
-  private async generatePdf(content: ExportContent, filePath: string): Promise<void> {
+  private async generatePdf(
+    content: ExportContent,
+    filePath: string
+  ): Promise<void> {
     // Create HTML content
     const html = this.generateHtmlContent(content);
-    
+
     // Launch Puppeteer
     const browser = await puppeteer.launch({
       headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-    
+
     try {
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'networkidle0' });
-      
+
       // Generate PDF
       await page.pdf({
         path: filePath,
@@ -348,9 +402,9 @@ export class ExportService {
           top: '1in',
           right: '1in',
           bottom: '1in',
-          left: '1in'
+          left: '1in',
         },
-        printBackground: true
+        printBackground: true,
       });
     } finally {
       await browser.close();
@@ -430,7 +484,7 @@ export class ExportService {
           <div class="chapter-title">${this.escapeHtml(chapter.title)}</div>
           <div class="chapter-content">
       `;
-      
+
       // Split content into paragraphs and wrap in <p> tags
       const paragraphs = chapter.content.split('\n\n');
       for (const paragraph of paragraphs) {
@@ -438,7 +492,7 @@ export class ExportService {
           html += `<p>${this.escapeHtml(paragraph.trim()).replace(/\n/g, '<br>')}</p>`;
         }
       }
-      
+
       html += `
           </div>
         </div>
@@ -462,7 +516,7 @@ export class ExportService {
       '<': '&lt;',
       '>': '&gt;',
       '"': '&quot;',
-      "'": '&#039;'
+      "'": '&#039;',
     };
     return text.replace(/[&<>"']/g, (m) => map[m]);
   }
@@ -470,7 +524,10 @@ export class ExportService {
   /**
    * Generate TXT file
    */
-  private async generateTxt(content: ExportContent, filePath: string): Promise<void> {
+  private async generateTxt(
+    content: ExportContent,
+    filePath: string
+  ): Promise<void> {
     let text = '';
 
     // Add title and metadata
@@ -494,7 +551,10 @@ export class ExportService {
   /**
    * Generate EPUB file using nodepub (more secure)
    */
-  private async generateEpub(content: ExportContent, filePath: string): Promise<void> {
+  private async generateEpub(
+    content: ExportContent,
+    filePath: string
+  ): Promise<void> {
     const epub = nodepub.document({
       title: content.title,
       author: content.metadata.author || 'Unknown Author',
@@ -502,7 +562,7 @@ export class ExportService {
       language: content.metadata.language || 'en',
       publisher: 'QuillHaven',
       published: content.metadata.publishDate || new Date(),
-      description: content.metadata.description || ''
+      description: content.metadata.description || '',
     });
 
     // Add chapters
@@ -510,16 +570,19 @@ export class ExportService {
       // Convert plain text to HTML with proper paragraph formatting
       const htmlContent = chapter.content
         .split('\n\n')
-        .map(paragraph => paragraph.trim())
-        .filter(paragraph => paragraph.length > 0)
-        .map(paragraph => `<p>${this.escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`)
+        .map((paragraph) => paragraph.trim())
+        .filter((paragraph) => paragraph.length > 0)
+        .map(
+          (paragraph) =>
+            `<p>${this.escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`
+        )
         .join('\n');
 
       epub.addSection(chapter.title, htmlContent);
     }
 
     return new Promise((resolve, reject) => {
-      epub.writeEPUB(filePath, (err: any) => {
+      epub.writeEPUB(filePath, (err: unknown) => {
         if (err) {
           reject(err);
         } else {
@@ -532,14 +595,18 @@ export class ExportService {
   /**
    * Update export status
    */
-  private async updateExportStatus(exportId: string, status: string, error?: string): Promise<void> {
+  private async updateExportStatus(
+    exportId: string,
+    status: string,
+    error?: string
+  ): Promise<void> {
     await prisma.export.update({
       where: { id: exportId },
-      data: { 
-        status: status as any,
+      data: {
+        status: status as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED',
         updatedAt: new Date(),
-        ...(error && { error })
-      }
+        ...(error && { error }),
+      },
     });
   }
 
@@ -547,7 +614,9 @@ export class ExportService {
    * Generate filename
    */
   private generateFilename(title: string, format: string): string {
-    const sanitizedTitle = title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '_');
+    const sanitizedTitle = title
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .replace(/\s+/g, '_');
     const timestamp = new Date().toISOString().slice(0, 10);
     return `${sanitizedTitle}_${timestamp}.${format.toLowerCase()}`;
   }
@@ -568,21 +637,24 @@ export class ExportService {
     const expiredExports = await prisma.export.findMany({
       where: {
         expiresAt: {
-          lt: new Date()
-        }
-      }
+          lt: new Date(),
+        },
+      },
     });
 
     for (const exportRecord of expiredExports) {
       // Delete file if it exists
-      const filePath = path.join(ExportService.EXPORT_DIR, `${exportRecord.id}.${exportRecord.format.toLowerCase()}`);
+      const filePath = path.join(
+        ExportService.EXPORT_DIR,
+        `${exportRecord.id}.${exportRecord.format.toLowerCase()}`
+      );
       if (fs.existsSync(filePath)) {
         fs.unlinkSync(filePath);
       }
 
       // Delete database record
       await prisma.export.delete({
-        where: { id: exportRecord.id }
+        where: { id: exportRecord.id },
       });
     }
   }
@@ -590,37 +662,44 @@ export class ExportService {
   /**
    * Get user's export history
    */
-  async getUserExports(userId: string, limit: number = 10): Promise<ExportJob[]> {
+  async getUserExports(
+    userId: string,
+    limit: number = 10
+  ): Promise<ExportJob[]> {
     const exports = await prisma.export.findMany({
       where: {
         project: {
-          userId: userId
-        }
+          userId: userId,
+        },
       },
       orderBy: {
-        createdAt: 'desc'
+        createdAt: 'desc',
       },
       take: limit,
       include: {
         project: {
           select: {
-            title: true
-          }
-        }
-      }
+            title: true,
+          },
+        },
+      },
     });
 
-    return exports.map(exportRecord => ({
+    return exports.map((exportRecord) => ({
       id: exportRecord.id,
       projectId: exportRecord.projectId,
       format: exportRecord.format as 'DOCX' | 'PDF' | 'TXT' | 'EPUB',
-      status: exportRecord.status as 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED',
+      status: exportRecord.status as
+        | 'PENDING'
+        | 'PROCESSING'
+        | 'COMPLETED'
+        | 'FAILED',
       filename: exportRecord.filename,
-      fileSize: exportRecord.fileSize,
-      downloadUrl: exportRecord.downloadUrl,
-      expiresAt: exportRecord.expiresAt,
+      fileSize: exportRecord.fileSize || undefined,
+      downloadUrl: exportRecord.downloadUrl || undefined,
+      expiresAt: exportRecord.expiresAt || undefined,
       createdAt: exportRecord.createdAt,
-      updatedAt: exportRecord.updatedAt
+      updatedAt: exportRecord.updatedAt,
     }));
   }
 }

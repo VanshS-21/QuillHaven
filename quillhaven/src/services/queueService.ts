@@ -1,10 +1,10 @@
 import { prisma } from '@/lib/prisma';
-import * as crypto from 'crypto';
+// import * as crypto from 'crypto'; // Unused import
 
 export interface QueueJob {
   id: string;
   type: string;
-  data: any;
+  data: unknown;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   attempts: number;
   maxAttempts: number;
@@ -17,7 +17,7 @@ export interface QueueJob {
 export class SimpleQueueService {
   private static instance: SimpleQueueService;
   private processing = false;
-  private processors: Map<string, (data: any) => Promise<void>> = new Map();
+  private processors: Map<string, (data: unknown) => Promise<void>> = new Map();
 
   static getInstance(): SimpleQueueService {
     if (!SimpleQueueService.instance) {
@@ -29,21 +29,28 @@ export class SimpleQueueService {
   /**
    * Register a job processor
    */
-  registerProcessor(jobType: string, processor: (data: any) => Promise<void>): void {
+  registerProcessor(
+    jobType: string,
+    processor: (data: unknown) => Promise<void>
+  ): void {
     this.processors.set(jobType, processor);
   }
 
   /**
    * Add a job to the queue
    */
-  async addJob(type: string, data: any, maxAttempts: number = 3): Promise<string> {
+  async addJob(
+    type: string,
+    data: unknown,
+    maxAttempts: number = 3
+  ): Promise<string> {
     const job = await prisma.queueJob.create({
       data: {
         type,
-        data,
+        data: data as object, // Prisma requires JsonValue type
         maxAttempts,
-        status: 'PENDING'
-      }
+        status: 'PENDING',
+      },
     });
 
     // Start processing if not already running
@@ -59,7 +66,7 @@ export class SimpleQueueService {
    */
   private async startProcessing(): Promise<void> {
     if (this.processing) return;
-    
+
     this.processing = true;
 
     while (this.processing) {
@@ -69,12 +76,12 @@ export class SimpleQueueService {
           where: {
             status: 'PENDING',
             attempts: {
-              lt: prisma.queueJob.fields.maxAttempts
-            }
+              lt: prisma.queueJob.fields.maxAttempts,
+            },
           },
           orderBy: {
-            createdAt: 'asc'
-          }
+            createdAt: 'asc',
+          },
         });
 
         if (!job) {
@@ -97,26 +104,27 @@ export class SimpleQueueService {
           data: {
             status: 'PROCESSING',
             attempts: {
-              increment: 1
-            }
-          }
+              increment: 1,
+            },
+          },
         });
 
         try {
           // Process the job
           await processor(job.data);
-          
+
           // Mark as completed
           await prisma.queueJob.update({
             where: { id: job.id },
             data: {
               status: 'COMPLETED',
-              processedAt: new Date()
-            }
+              processedAt: new Date(),
+            },
           });
         } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          
+          const errorMessage =
+            error instanceof Error ? error.message : 'Unknown error';
+
           if (job.attempts + 1 >= job.maxAttempts) {
             await this.markJobFailed(job.id, errorMessage);
           } else {
@@ -125,8 +133,8 @@ export class SimpleQueueService {
               where: { id: job.id },
               data: {
                 status: 'PENDING',
-                error: errorMessage
-              }
+                error: errorMessage,
+              },
             });
           }
         }
@@ -146,8 +154,8 @@ export class SimpleQueueService {
       data: {
         status: 'FAILED',
         error,
-        processedAt: new Date()
-      }
+        processedAt: new Date(),
+      },
     });
   }
 
@@ -163,7 +171,7 @@ export class SimpleQueueService {
    */
   async getJobStatus(jobId: string): Promise<QueueJob | null> {
     const job = await prisma.queueJob.findUnique({
-      where: { id: jobId }
+      where: { id: jobId },
     });
 
     if (!job) return null;
@@ -177,8 +185,8 @@ export class SimpleQueueService {
       maxAttempts: job.maxAttempts,
       createdAt: job.createdAt,
       updatedAt: job.updatedAt,
-      processedAt: job.processedAt,
-      error: job.error
+      processedAt: job.processedAt || undefined,
+      error: job.error || undefined,
     };
   }
 
@@ -192,12 +200,12 @@ export class SimpleQueueService {
     await prisma.queueJob.deleteMany({
       where: {
         status: {
-          in: ['COMPLETED', 'FAILED']
+          in: ['COMPLETED', 'FAILED'],
         },
         updatedAt: {
-          lt: cutoffDate
-        }
-      }
+          lt: cutoffDate,
+        },
+      },
     });
   }
 
@@ -205,7 +213,7 @@ export class SimpleQueueService {
    * Sleep utility
    */
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }
 

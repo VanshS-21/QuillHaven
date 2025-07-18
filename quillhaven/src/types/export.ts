@@ -22,9 +22,9 @@ export interface ExportJob {
   format: 'DOCX' | 'PDF' | 'TXT' | 'EPUB';
   status: 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   filename: string;
-  fileSize?: number;
-  downloadUrl?: string;
-  expiresAt?: Date;
+  fileSize?: number | null;
+  downloadUrl?: string | null;
+  expiresAt?: Date | null;
   error?: string;
   createdAt: Date;
   updatedAt: Date;
