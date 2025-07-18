@@ -291,3 +291,26 @@ enum ExportStatus {
   COMPLETED
   FAILED
 }
+
+// Queue job model for background job processing
+model QueueJob {
+  id          String   @id @default(cuid())
+  type        String
+  data        Json
+  status      QueueJobStatus @default(PENDING)
+  attempts    Int      @default(0)
+  maxAttempts Int      @default(3)
+  error       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  processedAt DateTime?
+  
+  @@map("queue_jobs")
+}
+
+enum QueueJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
