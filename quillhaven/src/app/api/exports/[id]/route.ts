@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportService } from '@/services/exportService';
 import { verifyAuth } from '@/lib/auth';
-import { withErrorHandler, AuthenticationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  NotFoundError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 async function handleGetExportStatus(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    request.headers.get('x-forwarded-for') ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
 
   // Verify authentication
   const authResult = await verifyAuth(request);
@@ -23,7 +36,10 @@ async function handleGetExportStatus(
     'export_status_retrieval',
     async () => {
       try {
-        return await exportService.getExportStatus(exportId, authResult.user!.id);
+        return await exportService.getExportStatus(
+          exportId,
+          authResult.user!.id
+        );
       } catch (error) {
         throw handleDatabaseError(error);
       }
@@ -36,14 +52,19 @@ async function handleGetExportStatus(
   }
 
   // Log security event for export access
-  SecurityLogger.logDataAccess('export', 'status_check', authResult.user.id, true);
-  
+  SecurityLogger.logDataAccess(
+    'export',
+    'status_check',
+    authResult.user.id,
+    true
+  );
+
   BusinessLogger.logUserAction('export_status_checked', authResult.user.id, {
     exportId,
     status: exportJob.status,
     format: exportJob.format,
     clientIP,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Export status retrieved', {
@@ -51,7 +72,7 @@ async function handleGetExportStatus(
     exportId,
     status: exportJob.status,
     format: exportJob.format,
-    clientIP
+    clientIP,
   });
 
   return NextResponse.json(exportJob);

@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getUserFromToken, generateToken } from '@/lib/auth';
 import { withCors, withRateLimit } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
-import { withErrorHandler, ValidationError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 async function handleRefreshToken(req: NextRequest) {
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
   // Get token from Authorization header
@@ -33,11 +46,11 @@ async function handleRefreshToken(req: NextRequest) {
 
   if (!user) {
     SecurityLogger.logAuthAttempt(false, 'unknown', clientIP, userAgent);
-    
+
     logger.warn('Token refresh failed - invalid token', {
       token: oldToken.substring(0, 8) + '...',
       clientIP,
-      userAgent
+      userAgent,
     });
 
     throw new AuthenticationError('Invalid or expired token');
@@ -67,18 +80,18 @@ async function handleRefreshToken(req: NextRequest) {
 
   // Log successful token refresh
   SecurityLogger.logAuthAttempt(true, user.email, clientIP, userAgent);
-  
+
   BusinessLogger.logUserAction('token_refresh', user.id, {
     clientIP,
     userAgent,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Token refreshed successfully', {
     userId: user.id,
     email: user.email,
     clientIP,
-    userAgent
+    userAgent,
   });
 
   return NextResponse.json(
@@ -100,12 +113,14 @@ async function handleRefreshToken(req: NextRequest) {
 }
 
 // Apply middleware
-const handler = withErrorHandler(withCors(
-  withRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 20, // 20 refresh attempts per 15 minutes
-    message: 'Too many token refresh attempts. Please try again later.',
-  })(handleRefreshToken)
-));
+const handler = withErrorHandler(
+  withCors(
+    withRateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 20, // 20 refresh attempts per 15 minutes
+      message: 'Too many token refresh attempts. Please try again later.',
+    })(handleRefreshToken)
+  )
+);
 
 export { handler as POST };

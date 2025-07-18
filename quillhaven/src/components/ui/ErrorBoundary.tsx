@@ -3,7 +3,13 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 import { Button } from './button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from './card';
 
 interface Props {
   children: ReactNode;
@@ -33,7 +39,7 @@ export class ErrorBoundary extends Component<Props, State> {
   static getDerivedStateFromError(error: Error): Partial<State> {
     // Generate a unique error ID for tracking
     const errorId = `err_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
+
     return {
       hasError: true,
       error,
@@ -126,7 +132,8 @@ export class ErrorBoundary extends Component<Props, State> {
               {this.state.errorId && (
                 <div className="bg-gray-100 p-3 rounded-md">
                   <p className="text-sm text-gray-600">
-                    Error ID: <code className="font-mono">{this.state.errorId}</code>
+                    Error ID:{' '}
+                    <code className="font-mono">{this.state.errorId}</code>
                   </p>
                 </div>
               )}
@@ -199,7 +206,9 @@ export function withErrorBoundary<P extends object>(
 }
 
 // Specialized error boundaries for different parts of the app
-export const ChapterErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => (
+export const ChapterErrorBoundary: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => (
   <ErrorBoundary
     fallback={
       <div className="p-6 text-center">
@@ -208,7 +217,8 @@ export const ChapterErrorBoundary: React.FC<{ children: ReactNode }> = ({ childr
           Chapter Loading Error
         </h3>
         <p className="text-gray-600 mb-4">
-          There was a problem loading this chapter. Please try refreshing the page.
+          There was a problem loading this chapter. Please try refreshing the
+          page.
         </p>
         <Button onClick={() => window.location.reload()}>
           <RefreshCw className="w-4 h-4 mr-2" />
@@ -225,7 +235,9 @@ export const ChapterErrorBoundary: React.FC<{ children: ReactNode }> = ({ childr
   </ErrorBoundary>
 );
 
-export const ProjectErrorBoundary: React.FC<{ children: ReactNode }> = ({ children }) => (
+export const ProjectErrorBoundary: React.FC<{ children: ReactNode }> = ({
+  children,
+}) => (
   <ErrorBoundary
     fallback={
       <div className="p-6 text-center">
@@ -234,14 +246,18 @@ export const ProjectErrorBoundary: React.FC<{ children: ReactNode }> = ({ childr
           Project Loading Error
         </h3>
         <p className="text-gray-600 mb-4">
-          There was a problem loading your project. Please try again or contact support.
+          There was a problem loading your project. Please try again or contact
+          support.
         </p>
         <div className="space-x-2">
           <Button onClick={() => window.location.reload()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Refresh
           </Button>
-          <Button variant="outline" onClick={() => window.location.href = '/dashboard'}>
+          <Button
+            variant="outline"
+            onClick={() => (window.location.href = '/dashboard')}
+          >
             <Home className="w-4 h-4 mr-2" />
             Back to Dashboard
           </Button>

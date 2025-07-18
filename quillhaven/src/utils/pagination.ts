@@ -45,7 +45,10 @@ export function parsePaginationParams(
   const page = Math.max(1, parseInt(searchParams.get('page') || '1'));
   const limit = Math.min(
     defaults.maxLimit || 100,
-    Math.max(1, parseInt(searchParams.get('limit') || String(defaults.limit || 10)))
+    Math.max(
+      1,
+      parseInt(searchParams.get('limit') || String(defaults.limit || 10))
+    )
   );
   const cursor = searchParams.get('cursor') || undefined;
   const sortBy = searchParams.get('sortBy') || undefined;
@@ -104,12 +107,15 @@ export function createCursorQuery<T extends Record<string, unknown>>(
 
   try {
     const cursorValue = JSON.parse(Buffer.from(cursor, 'base64').toString());
-    
+
     return {
       cursor: {
         [sortBy]: cursorValue,
       },
       skip: 1, // Skip the cursor item itself
+      orderBy: {
+        [sortBy]: sortOrder,
+      },
     };
   } catch {
     return {};
@@ -145,19 +151,21 @@ export function createPaginationResponse<T>(
 /**
  * Create cursor pagination response
  */
-export function createCursorPaginationResponse<T extends Record<string, unknown>>(
+export function createCursorPaginationResponse<
+  T extends Record<string, unknown>,
+>(
   data: T[],
   limit: number,
   sortBy: keyof T,
   hasMore: boolean = false
 ): CursorPaginationResult<T> {
   const hasNextPage = data.length === limit && hasMore;
-  const nextCursor = hasNextPage && data.length > 0 
-    ? generateCursor(data[data.length - 1], sortBy)
-    : undefined;
-  const previousCursor = data.length > 0 
-    ? generateCursor(data[0], sortBy)
-    : undefined;
+  const nextCursor =
+    hasNextPage && data.length > 0
+      ? generateCursor(data[data.length - 1], sortBy)
+      : undefined;
+  const previousCursor =
+    data.length > 0 ? generateCursor(data[0], sortBy) : undefined;
 
   return {
     data,
@@ -199,7 +207,7 @@ export interface SearchParams {
 export function parseSearchParams(searchParams: URLSearchParams): SearchParams {
   const query = searchParams.get('q') || undefined;
   const filters: Record<string, unknown> = {};
-  
+
   // Parse filter parameters (filter_key=value)
   for (const [key, value] of searchParams.entries()) {
     if (key.startsWith('filter_')) {
@@ -211,10 +219,13 @@ export function parseSearchParams(searchParams: URLSearchParams): SearchParams {
   // Parse date range
   const dateFrom = searchParams.get('date_from');
   const dateTo = searchParams.get('date_to');
-  const dateRange = (dateFrom || dateTo) ? {
-    from: dateFrom ? new Date(dateFrom) : undefined,
-    to: dateTo ? new Date(dateTo) : undefined,
-  } : undefined;
+  const dateRange =
+    dateFrom || dateTo
+      ? {
+          from: dateFrom ? new Date(dateFrom) : undefined,
+          to: dateTo ? new Date(dateTo) : undefined,
+        }
+      : undefined;
 
   return {
     query,
@@ -234,7 +245,7 @@ export function buildSearchWhere(
 
   // Add text search
   if (searchParams.query && searchableFields.length > 0) {
-    where.OR = searchableFields.map(field => ({
+    where.OR = searchableFields.map((field) => ({
       [field]: {
         contains: searchParams.query,
         mode: 'insensitive',

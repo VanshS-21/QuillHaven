@@ -6,8 +6,9 @@
 import { prisma } from '@/lib/prisma';
 import { UserContentEncryption } from '@/lib/encryption';
 import archiver from 'archiver';
-import { Readable } from 'stream';
-import type { User, Project, Chapter, Character, PlotThread, WorldElement } from '@prisma/client';
+import crypto from 'crypto';
+
+import type { User } from '@prisma/client';
 
 export interface DataExportOptions {
   format: 'json' | 'zip';
@@ -19,12 +20,7 @@ export interface DataExportOptions {
 
 export interface UserDataExport {
   user: Partial<User>;
-  projects?: Array<Project & {
-    chapters?: Chapter[];
-    characters?: Character[];
-    plotThreads?: PlotThread[];
-    worldElements?: WorldElement[];
-  }>;
+  projects?: Array<Record<string, unknown>>;
   metadata: {
     exportDate: string;
     exportVersion: string;
@@ -64,21 +60,29 @@ export class DataPrivacyService {
    */
   async exportUserData(
     userId: string,
-    options: DataExportOptions = { format: 'json', includeProjects: true, includeChapters: true, includeContext: true, includeMetadata: true }
+    options: DataExportOptions = {
+      format: 'json',
+      includeProjects: true,
+      includeChapters: true,
+      includeContext: true,
+      includeMetadata: true,
+    }
   ): Promise<Buffer> {
     try {
       // Get user data
       const user = await prisma.user.findUnique({
         where: { id: userId },
         include: {
-          projects: options.includeProjects ? {
-            include: {
-              chapters: options.includeChapters,
-              characters: options.includeContext,
-              plotThreads: options.includeContext,
-              worldElements: options.includeContext,
-            }
-          } : false,
+          projects: options.includeProjects
+            ? {
+                include: {
+                  chapters: options.includeChapters,
+                  characters: options.includeContext,
+                  plotThreads: options.includeContext,
+                  worldElements: options.includeContext,
+                },
+              }
+            : false,
         },
       });
 
@@ -110,32 +114,60 @@ export class DataPrivacyService {
 
       // Process projects and decrypt content if needed
       if (options.includeProjects && user.projects) {
-        exportData.projects = user.projects.map((project: any) => {
+        exportData.projects = user.projects.map((project) => {
+          // Type assertion to include relations
+          const projectWithRelations = project as typeof project & {
+            chapters?: Array<{
+              content: string;
+              wordCount?: number;
+              title: string;
+              [key: string]: unknown;
+            }>;
+            characters?: Array<{
+              description: string | null;
+              [key: string]: unknown;
+            }>;
+            plotThreads?: Array<{
+              description: string;
+              [key: string]: unknown;
+            }>;
+            worldElements?: Array<{
+              description: string;
+              [key: string]: unknown;
+            }>;
+          };
+
           const processedProject = {
-            ...project,
-            chapters: project.chapters?.map((chapter: any) => ({
+            ...projectWithRelations,
+            chapters: projectWithRelations.chapters?.map((chapter) => ({
               ...chapter,
               content: this.decryptContentIfNeeded(chapter.content),
             })),
-            characters: project.characters?.map((character: any) => ({
+            characters: projectWithRelations.characters?.map((character) => ({
               ...character,
-              description: this.decryptContentIfNeeded(character.description),
+              description: character.description
+                ? this.decryptContentIfNeeded(character.description)
+                : null,
             })),
-            plotThreads: project.plotThreads?.map((thread: any) => ({
+            plotThreads: projectWithRelations.plotThreads?.map((thread) => ({
               ...thread,
               description: this.decryptContentIfNeeded(thread.description),
             })),
-            worldElements: project.worldElements?.map((element: any) => ({
-              ...element,
-              description: this.decryptContentIfNeeded(element.description),
-            })),
+            worldElements: projectWithRelations.worldElements?.map(
+              (element) => ({
+                ...element,
+                description: this.decryptContentIfNeeded(element.description),
+              })
+            ),
           };
 
           // Update metadata
           if (processedProject.chapters) {
-            exportData.metadata.totalChapters += processedProject.chapters.length;
+            exportData.metadata.totalChapters +=
+              processedProject.chapters.length;
             exportData.metadata.totalWords += processedProject.chapters.reduce(
-              (sum: number, chapter: any) => sum + (chapter.wordCount || 0), 0
+              (sum: number, chapter) => sum + (chapter.wordCount || 0),
+              0
             );
           }
 
@@ -168,16 +200,21 @@ export class DataPrivacyService {
       archive.on('error', reject);
 
       // Add user profile
-      archive.append(JSON.stringify(exportData.user, null, 2), { name: 'user-profile.json' });
+      archive.append(JSON.stringify(exportData.user, null, 2), {
+        name: 'user-profile.json',
+      });
 
       // Add metadata
-      archive.append(JSON.stringify(exportData.metadata, null, 2), { name: 'export-metadata.json' });
+      archive.append(JSON.stringify(exportData.metadata, null, 2), {
+        name: 'export-metadata.json',
+      });
 
       // Add projects
       if (exportData.projects) {
-        exportData.projects.forEach((project, index) => {
-          const projectFolder = `projects/${project.title.replace(/[^a-zA-Z0-9]/g, '_')}/`;
-          
+        exportData.projects.forEach((project) => {
+          const projectTitle = (project.title as string) || 'untitled';
+          const projectFolder = `projects/${projectTitle.replace(/[^a-zA-Z0-9]/g, '_')}/`;
+
           // Project metadata
           const projectMeta = {
             id: project.id,
@@ -190,11 +227,23 @@ export class DataPrivacyService {
             createdAt: project.createdAt,
             updatedAt: project.updatedAt,
           };
-          archive.append(JSON.stringify(projectMeta, null, 2), { name: `${projectFolder}project.json` });
+          archive.append(JSON.stringify(projectMeta, null, 2), {
+            name: `${projectFolder}project.json`,
+          });
 
           // Chapters
-          if (project.chapters) {
-            project.chapters.forEach((chapter, chapterIndex) => {
+          if (project.chapters && Array.isArray(project.chapters)) {
+            (
+              project.chapters as Array<{
+                title: string;
+                content: string;
+                wordCount?: number;
+                order?: number;
+                status?: string;
+                createdAt?: Date;
+                updatedAt?: Date;
+              }>
+            ).forEach((chapter, chapterIndex) => {
               const chapterData = {
                 title: chapter.title,
                 content: chapter.content,
@@ -204,31 +253,36 @@ export class DataPrivacyService {
                 createdAt: chapter.createdAt,
                 updatedAt: chapter.updatedAt,
               };
-              archive.append(JSON.stringify(chapterData, null, 2), 
-                { name: `${projectFolder}chapters/chapter-${chapterIndex + 1}-${chapter.title.replace(/[^a-zA-Z0-9]/g, '_')}.json` });
-              
+              archive.append(JSON.stringify(chapterData, null, 2), {
+                name: `${projectFolder}chapters/chapter-${chapterIndex + 1}-${chapter.title.replace(/[^a-zA-Z0-9]/g, '_')}.json`,
+              });
+
               // Also save as plain text
-              archive.append(chapter.content, 
-                { name: `${projectFolder}chapters/chapter-${chapterIndex + 1}-${chapter.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt` });
+              archive.append(chapter.content, {
+                name: `${projectFolder}chapters/chapter-${chapterIndex + 1}-${chapter.title.replace(/[^a-zA-Z0-9]/g, '_')}.txt`,
+              });
             });
           }
 
           // Characters
           if (project.characters) {
-            archive.append(JSON.stringify(project.characters, null, 2), 
-              { name: `${projectFolder}characters.json` });
+            archive.append(JSON.stringify(project.characters, null, 2), {
+              name: `${projectFolder}characters.json`,
+            });
           }
 
           // Plot threads
           if (project.plotThreads) {
-            archive.append(JSON.stringify(project.plotThreads, null, 2), 
-              { name: `${projectFolder}plot-threads.json` });
+            archive.append(JSON.stringify(project.plotThreads, null, 2), {
+              name: `${projectFolder}plot-threads.json`,
+            });
           }
 
           // World elements
           if (project.worldElements) {
-            archive.append(JSON.stringify(project.worldElements, null, 2), 
-              { name: `${projectFolder}world-elements.json` });
+            archive.append(JSON.stringify(project.worldElements, null, 2), {
+              name: `${projectFolder}world-elements.json`,
+            });
           }
         });
       }
@@ -240,7 +294,10 @@ export class DataPrivacyService {
   /**
    * Delete all user data in compliance with GDPR Article 17 (Right to be forgotten)
    */
-  async deleteUserData(userId: string, confirmationToken: string): Promise<DataDeletionResult> {
+  async deleteUserData(
+    userId: string,
+    confirmationToken: string
+  ): Promise<DataDeletionResult> {
     const result: DataDeletionResult = {
       success: false,
       deletedItems: {
@@ -347,8 +404,10 @@ export class DataPrivacyService {
       result.success = true;
 
       // Log the deletion for audit purposes
-      console.log(`User data deletion completed for user ${userId}:`, result.deletedItems);
-
+      console.log(
+        `User data deletion completed for user ${userId}:`,
+        result.deletedItems
+      );
     } catch (error) {
       console.error('Data deletion error:', error);
       result.errors?.push('Failed to delete user data');
@@ -360,7 +419,9 @@ export class DataPrivacyService {
   /**
    * Request data deletion (sends confirmation email)
    */
-  async requestDataDeletion(userId: string): Promise<{ success: boolean; message: string }> {
+  async requestDataDeletion(
+    userId: string
+  ): Promise<{ success: boolean; message: string }> {
     try {
       const user = await prisma.user.findUnique({
         where: { id: userId },
@@ -388,7 +449,8 @@ export class DataPrivacyService {
 
       return {
         success: true,
-        message: 'Data deletion confirmation email sent. Please check your email to confirm.',
+        message:
+          'Data deletion confirmation email sent. Please check your email to confirm.',
       };
     } catch (error) {
       console.error('Data deletion request error:', error);
@@ -416,7 +478,6 @@ export class DataPrivacyService {
    * Generate deletion confirmation token
    */
   private generateDeletionToken(userId: string): string {
-    const crypto = require('crypto');
     const data = `${userId}:${Date.now()}:deletion`;
     return crypto.createHash('sha256').update(data).digest('hex');
   }
@@ -481,12 +542,26 @@ export async function getUserDataSummary(userId: string): Promise<{
     }
 
     const totalProjects = user.projects.length;
-    const totalChapters = user.projects.reduce((sum, project) => sum + project.chapters.length, 0);
-    const totalWords = user.projects.reduce((sum, project) => 
-      sum + project.chapters.reduce((chapterSum, chapter) => chapterSum + (chapter.wordCount || 0), 0), 0
+    const totalChapters = user.projects.reduce(
+      (sum, project) => sum + project.chapters.length,
+      0
     );
-    const totalCharacters = user.projects.reduce((sum, project) => sum + project.characters.length, 0);
-    const accountAge = Math.floor((Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    const totalWords = user.projects.reduce(
+      (sum, project) =>
+        sum +
+        project.chapters.reduce(
+          (chapterSum, chapter) => chapterSum + (chapter.wordCount || 0),
+          0
+        ),
+      0
+    );
+    const totalCharacters = user.projects.reduce(
+      (sum, project) => sum + project.characters.length,
+      0
+    );
+    const accountAge = Math.floor(
+      (Date.now() - user.createdAt.getTime()) / (1000 * 60 * 60 * 24)
+    );
     const lastActivity = user.sessions[0]?.createdAt || null;
 
     return {

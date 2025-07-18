@@ -8,8 +8,13 @@ import {
   type RegistrationData,
 } from '@/utils/validation/auth';
 import { withRateLimit, withCors, withValidation } from '@/lib/middleware';
-import { withErrorHandler, ValidationError, ConflictError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, SecurityLogger, PerformanceLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  ConflictError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import { logger, PerformanceLogger } from '@/lib/logger';
 import { withEmailDegradation } from '@/lib/gracefulDegradation';
 
 interface RegisterRequestData {
@@ -57,7 +62,10 @@ async function handleRegister(
   validatedData: RegisterRequestData
 ) {
   const { email, password, firstName, lastName } = validatedData;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent');
 
   // Register user with performance monitoring
@@ -80,13 +88,15 @@ async function handleRegister(
       clientIP,
       userAgent,
     });
-    
+
     // Check if it's a conflict (user already exists)
-    if (result.message?.toLowerCase().includes('already exists') || 
-        result.message?.toLowerCase().includes('already registered')) {
+    if (
+      result.message?.toLowerCase().includes('already exists') ||
+      result.message?.toLowerCase().includes('already registered')
+    ) {
       throw new ConflictError(result.message || 'User already exists');
     }
-    
+
     throw new ValidationError(result.message || 'Registration failed');
   }
 
@@ -121,11 +131,17 @@ async function handleRegister(
       },
       async () => {
         // Fallback: Log that email couldn't be sent but don't fail registration
-        logger.warn('Verification email could not be sent - email service unavailable', {
-          userId: result.user!.id,
-          email: result.user!.email,
-        });
-        return { success: false, message: 'Email service temporarily unavailable' };
+        logger.warn(
+          'Verification email could not be sent - email service unavailable',
+          {
+            userId: result.user!.id,
+            email: result.user!.email,
+          }
+        );
+        return {
+          success: false,
+          message: 'Email service temporarily unavailable',
+        };
       }
     );
   }

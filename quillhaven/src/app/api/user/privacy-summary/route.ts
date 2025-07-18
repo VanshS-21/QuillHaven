@@ -3,15 +3,31 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { getUserDataSummary } from '@/services/dataPrivacyService';
-import { withErrorHandler, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 async function handlePrivacySummary(req: NextRequest) {
-  const user = (req as any).user;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-  
+  const user = (req as AuthenticatedRequest).user;
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+
   if (!user) {
     throw new AuthenticationError();
   }
@@ -31,18 +47,18 @@ async function handlePrivacySummary(req: NextRequest) {
 
   // Log security event for privacy data access
   SecurityLogger.logDataAccess('privacy_summary', 'read', user.id, true);
-  
+
   BusinessLogger.logUserAction('privacy_summary_viewed', user.id, {
     clientIP,
     userAgent: req.headers.get('user-agent') || 'unknown',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Privacy summary generated', {
     userId: user.id,
     email: user.email,
     clientIP,
-    userAgent: req.headers.get('user-agent')
+    userAgent: req.headers.get('user-agent'),
   });
 
   return NextResponse.json({
@@ -57,12 +73,14 @@ async function handlePrivacySummary(req: NextRequest) {
 }
 
 // Apply middleware with moderate rate limiting
-const handler = withErrorHandler(withAuth(
-  withRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 10, // 10 requests per 15 minutes
-    message: 'Too many requests. Please try again later.',
-  })(handlePrivacySummary)
-));
+const handler = withErrorHandler(
+  withAuth(
+    withRateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 10, // 10 requests per 15 minutes
+      message: 'Too many requests. Please try again later.',
+    })(handlePrivacySummary)
+  )
+);
 
 export { handler as GET };

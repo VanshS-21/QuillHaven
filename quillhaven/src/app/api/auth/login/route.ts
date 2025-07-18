@@ -6,7 +6,11 @@ import {
   type LoginData,
 } from '@/utils/validation/auth';
 import { withRateLimit, withCors, withValidation } from '@/lib/middleware';
-import { withErrorHandler, AuthenticationError, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, SecurityLogger, PerformanceLogger } from '@/lib/logger';
 
 interface LoginRequestData {
@@ -35,7 +39,10 @@ function validateLoginData(data: unknown) {
 
 async function handleLogin(req: NextRequest, validatedData: LoginRequestData) {
   const { email, password } = validatedData;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent');
 
   // Authenticate user with performance monitoring
@@ -52,7 +59,12 @@ async function handleLogin(req: NextRequest, validatedData: LoginRequestData) {
   );
 
   // Log authentication attempt
-  SecurityLogger.logAuthAttempt(result.success, email, clientIP, userAgent || undefined);
+  SecurityLogger.logAuthAttempt(
+    result.success,
+    email,
+    clientIP,
+    userAgent || undefined
+  );
 
   if (!result.success) {
     logger.warn('Login attempt failed', {

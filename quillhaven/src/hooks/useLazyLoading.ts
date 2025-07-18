@@ -4,7 +4,10 @@ import { useState, useCallback, useEffect } from 'react';
 
 export interface UseLazyLoadingOptions<T> {
   initialData?: T[];
-  fetchFunction: (page: number, limit: number) => Promise<{
+  fetchFunction: (
+    page: number,
+    limit: number
+  ) => Promise<{
     data: T[];
     hasMore: boolean;
     total?: number;
@@ -45,16 +48,17 @@ export function useLazyLoading<T>({
 
     try {
       const result = await fetchFunction(page, limit);
-      
-      setItems(prev => [...prev, ...result.data]);
+
+      setItems((prev) => [...prev, ...result.data]);
       setHasMore(result.hasMore);
-      setPage(prev => prev + 1);
-      
+      setPage((prev) => prev + 1);
+
       if (result.total !== undefined) {
         setTotal(result.total);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -72,16 +76,17 @@ export function useLazyLoading<T>({
 
     try {
       const result = await fetchFunction(1, limit);
-      
+
       setItems(result.data);
       setHasMore(result.hasMore);
       setPage(2);
-      
+
       if (result.total !== undefined) {
         setTotal(result.total);
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An error occurred';
+      const errorMessage =
+        err instanceof Error ? err.message : 'An error occurred';
       setError(errorMessage);
     } finally {
       setLoading(false);

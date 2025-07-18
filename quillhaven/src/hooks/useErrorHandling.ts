@@ -19,38 +19,51 @@ export const useErrorHandling = () => {
     async (response: Response, context?: string) => {
       try {
         const errorData: ApiError = await response.json();
-        
+
         const title = errorData.message || `HTTP ${response.status} Error`;
         const message = context ? `Error in ${context}` : errorData.error || '';
-        
+
         // Different handling based on status code
         if (response.status >= 500) {
           notifyError(title, message, {
             persistent: true,
-            action: errorData.requestId ? {
-              label: 'Copy Error ID',
-              onClick: () => {
-                navigator.clipboard.writeText(errorData.requestId!);
-                notifyInfo('Error ID copied to clipboard');
-              },
-            } : undefined,
+            action: errorData.requestId
+              ? {
+                  label: 'Copy Error ID',
+                  onClick: () => {
+                    navigator.clipboard.writeText(errorData.requestId!);
+                    notifyInfo('Error ID copied to clipboard');
+                  },
+                }
+              : undefined,
           });
         } else if (response.status === 429) {
-          notifyWarning('Rate limit exceeded', 'Please wait before trying again', {
-            duration: 10000,
-          });
+          notifyWarning(
+            'Rate limit exceeded',
+            'Please wait before trying again',
+            {
+              duration: 10000,
+            }
+          );
         } else if (response.status === 401) {
-          notifyWarning('Authentication required', 'Please log in to continue', {
-            persistent: true,
-            action: {
-              label: 'Go to Login',
-              onClick: () => {
-                window.location.href = '/auth';
+          notifyWarning(
+            'Authentication required',
+            'Please log in to continue',
+            {
+              persistent: true,
+              action: {
+                label: 'Go to Login',
+                onClick: () => {
+                  window.location.href = '/auth';
+                },
               },
-            },
-          });
+            }
+          );
         } else if (response.status === 403) {
-          notifyWarning('Access denied', 'You do not have permission to perform this action');
+          notifyWarning(
+            'Access denied',
+            'You do not have permission to perform this action'
+          );
         } else if (response.status >= 400) {
           notifyWarning(title, message);
         }
@@ -88,7 +101,7 @@ export const useErrorHandling = () => {
     (context?: string) => {
       notifyError(
         'Network Error',
-        context 
+        context
           ? `Unable to connect to server while ${context}. Please check your internet connection.`
           : 'Unable to connect to server. Please check your internet connection.',
         {
@@ -135,16 +148,16 @@ export const useErrorHandling = () => {
       return async (...args: T): Promise<R | undefined> => {
         try {
           const response = await fn(...args);
-          
+
           if (!response.ok) {
             await handleApiError(response, context);
             return undefined;
           }
-          
+
           if (successHandler) {
             return await successHandler(response);
           }
-          
+
           return response.json() as Promise<R>;
         } catch (error) {
           if (error instanceof TypeError && error.message.includes('fetch')) {

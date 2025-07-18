@@ -5,8 +5,17 @@ import {
   type PasswordResetData,
 } from '@/utils/validation/auth';
 import { withRateLimit, withCors, withValidation } from '@/lib/middleware';
-import { withErrorHandler, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 interface ResetPasswordRequestData {
   token: string;
@@ -43,7 +52,10 @@ async function handleResetPassword(
   validatedData: ResetPasswordRequestData
 ) {
   const { token, password } = validatedData;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
   // Reset password with performance monitoring
@@ -61,36 +73,49 @@ async function handleResetPassword(
 
   if (!result.success) {
     // Log failed password reset attempt
-    SecurityLogger.logAuthAttempt(false, result.user?.email || 'unknown', clientIP, userAgent);
-    
+    SecurityLogger.logAuthAttempt(
+      false,
+      result.user?.email || 'unknown',
+      clientIP,
+      userAgent
+    );
+
     logger.warn('Password reset failed', {
       token: token.substring(0, 8) + '...',
       reason: result.message,
       clientIP,
-      userAgent
+      userAgent,
     });
 
-    if (result.message?.includes('expired') || result.message?.includes('invalid')) {
+    if (
+      result.message?.includes('expired') ||
+      result.message?.includes('invalid')
+    ) {
       throw new ValidationError(result.message || 'Password reset failed');
     }
-    
+
     throw new ValidationError('Password reset failed');
   }
 
   // Log successful password reset
-  SecurityLogger.logAuthAttempt(true, result.user?.email || 'unknown', clientIP, userAgent);
-  
+  SecurityLogger.logAuthAttempt(
+    true,
+    result.user?.email || 'unknown',
+    clientIP,
+    userAgent
+  );
+
   BusinessLogger.logUserAction('password_reset', result.user?.id || 'unknown', {
     clientIP,
     userAgent,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Password reset successful', {
     userId: result.user?.id,
     email: result.user?.email,
     clientIP,
-    userAgent
+    userAgent,
   });
 
   return NextResponse.json(
@@ -108,12 +133,14 @@ async function handleResetPassword(
 }
 
 // Apply middleware
-const handler = withErrorHandler(withCors(
-  withRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 25, // 25 password reset attempts per 15 minutes (more lenient for testing)
-    message: 'Too many password reset attempts. Please try again later.',
-  })(withValidation(validateResetPasswordData, handleResetPassword))
-));
+const handler = withErrorHandler(
+  withCors(
+    withRateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 25, // 25 password reset attempts per 15 minutes (more lenient for testing)
+      message: 'Too many password reset attempts. Please try again later.',
+    })(withValidation(validateResetPasswordData, handleResetPassword))
+  )
+);
 
 export { handler as POST };

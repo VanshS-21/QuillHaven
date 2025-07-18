@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logoutUser } from '@/lib/auth';
 import { withCors } from '@/lib/middleware';
-import { withErrorHandler, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, SecurityLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import { logger } from '@/lib/logger';
 
 async function handleLogout(req: NextRequest) {
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-  
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+
   // Get token from Authorization header
   const authHeader = req.headers.get('authorization');
 

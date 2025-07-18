@@ -117,7 +117,7 @@ export function withErrorHandler<T extends unknown[]>(
       return response;
     } catch (error) {
       const duration = Date.now() - startTime;
-      
+
       // Handle different types of errors
       if (error instanceof AppError) {
         return handleAppError(error, requestId, duration);
@@ -266,10 +266,12 @@ export function asyncHandler<T extends unknown[]>(
 export function handleDatabaseError(error: unknown): AppError {
   if (error && typeof error === 'object' && 'code' in error) {
     const dbError = error as { code: string; message: string };
-    
+
     switch (dbError.code) {
       case 'P2002':
-        return new ConflictError('A record with this information already exists');
+        return new ConflictError(
+          'A record with this information already exists'
+        );
       case 'P2025':
         return new NotFoundError('The requested record was not found');
       case 'P2003':
@@ -298,7 +300,7 @@ export async function handleExternalServiceCall<T>(
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const result = await operation();
-      
+
       // Log successful call after retries
       if (attempt > 1) {
         logger.info('External service call succeeded after retries', {
@@ -307,11 +309,11 @@ export async function handleExternalServiceCall<T>(
           maxRetries,
         });
       }
-      
+
       return result;
     } catch (error) {
       lastError = error;
-      
+
       logger.warn('External service call failed', {
         service: serviceName,
         attempt,
@@ -325,7 +327,7 @@ export async function handleExternalServiceCall<T>(
       }
 
       // Wait before retrying with exponential backoff
-      await new Promise(resolve => 
+      await new Promise((resolve) =>
         setTimeout(resolve, retryDelay * Math.pow(2, attempt - 1))
       );
     }

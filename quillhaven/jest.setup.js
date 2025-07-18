@@ -4,30 +4,33 @@ require('@testing-library/jest-dom');
 process.env.GEMINI_API_KEY = 'test-api-key';
 process.env.NODE_ENV = 'test';
 process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
-process.env.ENCRYPTION_KEY = '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
+process.env.ENCRYPTION_KEY =
+  '0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
 
 // Mock crypto module for tests
 jest.mock('crypto', () => {
   const actualCrypto = jest.requireActual('crypto');
-  
+
   // Simple encryption/decryption for testing
   const encryptionMap = new Map();
   let encryptionCounter = 0;
-  
+
   return {
     ...actualCrypto,
     createCipheriv: jest.fn((algorithm, key, iv) => {
       const encryptionId = `enc_${encryptionCounter++}_${Date.now()}`;
-      const keyString = Buffer.isBuffer(key) ? key.toString('hex') : key.toString();
+      const keyString = Buffer.isBuffer(key)
+        ? key.toString('hex')
+        : key.toString();
       const ivString = Buffer.isBuffer(iv) ? iv.toString('hex') : iv.toString();
-      
+
       return {
         update: jest.fn((data, inputEncoding, outputEncoding) => {
           // Store the original data for decryption
-          encryptionMap.set(encryptionId, { 
-            data, 
+          encryptionMap.set(encryptionId, {
+            data,
             key: keyString,
-            iv: ivString
+            iv: ivString,
           });
           return encryptionId;
         }),
@@ -35,16 +38,20 @@ jest.mock('crypto', () => {
       };
     }),
     createDecipheriv: jest.fn((algorithm, key, iv) => {
-      const keyString = Buffer.isBuffer(key) ? key.toString('hex') : key.toString();
+      const keyString = Buffer.isBuffer(key)
+        ? key.toString('hex')
+        : key.toString();
       const ivString = Buffer.isBuffer(iv) ? iv.toString('hex') : iv.toString();
-      
+
       return {
         update: jest.fn((encryptedData, inputEncoding, outputEncoding) => {
           // Find the original data by matching the encryption ID, key, and IV
           for (const [id, stored] of encryptionMap.entries()) {
-            if (encryptedData.includes(id) && 
-                stored.key === keyString && 
-                stored.iv === ivString) {
+            if (
+              encryptedData.includes(id) &&
+              stored.key === keyString &&
+              stored.iv === ivString
+            ) {
               return stored.data;
             }
           }
@@ -103,5 +110,5 @@ jest.mock('@/lib/redis', () => ({
 // Global test cleanup
 afterAll(async () => {
   // Clean up any open handles
-  await new Promise(resolve => setTimeout(resolve, 100));
+  await new Promise((resolve) => setTimeout(resolve, 100));
 });

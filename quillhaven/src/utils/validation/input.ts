@@ -7,7 +7,7 @@ import DOMPurify from 'isomorphic-dompurify';
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  sanitizedData?: any;
+  sanitizedData?: unknown;
 }
 
 export interface ValidationOptions {
@@ -33,7 +33,7 @@ export function validateString(
   options: ValidationOptions = {}
 ): ValidationResult {
   const errors: string[] = [];
-  let sanitizedData = value?.toString().trim() || '';
+  const sanitizedData = value?.toString().trim() || '';
 
   // Required validation
   if (options.required && !sanitizedData) {
@@ -41,16 +41,32 @@ export function validateString(
   }
 
   // Length validation
-  if (sanitizedData && options.minLength && sanitizedData.length < options.minLength) {
-    errors.push(`${fieldName} must be at least ${options.minLength} characters long`);
+  if (
+    sanitizedData &&
+    options.minLength &&
+    sanitizedData.length < options.minLength
+  ) {
+    errors.push(
+      `${fieldName} must be at least ${options.minLength} characters long`
+    );
   }
 
-  if (sanitizedData && options.maxLength && sanitizedData.length > options.maxLength) {
-    errors.push(`${fieldName} must be no more than ${options.maxLength} characters long`);
+  if (
+    sanitizedData &&
+    options.maxLength &&
+    sanitizedData.length > options.maxLength
+  ) {
+    errors.push(
+      `${fieldName} must be no more than ${options.maxLength} characters long`
+    );
   }
 
   // Pattern validation
-  if (sanitizedData && options.pattern && !options.pattern.test(sanitizedData)) {
+  if (
+    sanitizedData &&
+    options.pattern &&
+    !options.pattern.test(sanitizedData)
+  ) {
     errors.push(`${fieldName} format is invalid`);
   }
 
@@ -86,13 +102,21 @@ export function validateNumber(
   const numValue = typeof value === 'string' ? parseFloat(value) : value;
 
   // Required validation
-  if (options.required && (value === undefined || value === null || value === '')) {
+  if (
+    options.required &&
+    (value === undefined || value === null || value === '')
+  ) {
     errors.push(`${fieldName} is required`);
     return { isValid: false, errors };
   }
 
   // Check if it's a valid number
-  if (value !== undefined && value !== null && value !== '' && isNaN(numValue)) {
+  if (
+    value !== undefined &&
+    value !== null &&
+    value !== '' &&
+    isNaN(numValue)
+  ) {
     errors.push(`${fieldName} must be a valid number`);
     return { isValid: false, errors };
   }
@@ -126,8 +150,25 @@ export function validateNumber(
 export function sanitizeHtml(html: string): string {
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
-      'p', 'br', 'strong', 'em', 'u', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
-      'ul', 'ol', 'li', 'blockquote', 'a', 'img', 'div', 'span'
+      'p',
+      'br',
+      'strong',
+      'em',
+      'u',
+      'h1',
+      'h2',
+      'h3',
+      'h4',
+      'h5',
+      'h6',
+      'ul',
+      'ol',
+      'li',
+      'blockquote',
+      'a',
+      'img',
+      'div',
+      'span',
     ],
     ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
     ALLOW_DATA_ATTR: false,
@@ -138,12 +179,14 @@ export function sanitizeHtml(html: string): string {
  * Sanitize plain text by removing control characters and normalizing whitespace
  */
 export function sanitizeText(text: string): string {
-  return text
-    // Remove control characters (except newlines and tabs)
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    // Normalize whitespace
-    .replace(/\s+/g, ' ')
-    .trim();
+  return (
+    text
+      // Remove control characters (except newlines and tabs)
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+      // Normalize whitespace
+      .replace(/\s+/g, ' ')
+      .trim()
+  );
 }
 
 /**
@@ -154,10 +197,10 @@ export function validateDatabaseIdentifier(
   fieldName: string
 ): ValidationResult {
   const errors: string[] = [];
-  
+
   // Allow only alphanumeric characters, underscores, and hyphens
   const validPattern = /^[a-zA-Z0-9_-]+$/;
-  
+
   if (!validPattern.test(value)) {
     errors.push(`${fieldName} contains invalid characters`);
   }
@@ -235,15 +278,15 @@ export function validateFileUpload(
  */
 export function validateUrl(url: string, fieldName: string): ValidationResult {
   const errors: string[] = [];
-  
+
   try {
     const urlObj = new URL(url);
-    
+
     // Only allow http and https protocols
     if (!['http:', 'https:'].includes(urlObj.protocol)) {
       errors.push(`${fieldName} must use http or https protocol`);
     }
-    
+
     // Prevent localhost and private IP ranges in production
     if (process.env.NODE_ENV === 'production') {
       const hostname = urlObj.hostname.toLowerCase();
@@ -254,8 +297,8 @@ export function validateUrl(url: string, fieldName: string): ValidationResult {
         /^172\.(1[6-9]|2[0-9]|3[0-1])\./,
         /^192\.168\./,
       ];
-      
-      if (privatePatterns.some(pattern => pattern.test(hostname))) {
+
+      if (privatePatterns.some((pattern) => pattern.test(hostname))) {
         errors.push(`${fieldName} cannot reference private or local addresses`);
       }
     }

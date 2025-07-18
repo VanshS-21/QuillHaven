@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { redis } from '@/lib/redis';
 import { logger } from '@/lib/logger';
 import { withAuth } from '@/lib/middleware';
+import os from 'os';
 
 interface DetailedHealthCheck {
   status: 'healthy' | 'degraded' | 'unhealthy';
@@ -62,11 +63,12 @@ async function GET() {
 
   try {
     // Perform detailed health checks
-    const [databaseResult, redisResult, geminiResult] = await Promise.allSettled([
-      checkDatabaseDetailed(),
-      checkRedisDetailed(),
-      checkGeminiAI(),
-    ]);
+    const [databaseResult, redisResult, geminiResult] =
+      await Promise.allSettled([
+        checkDatabaseDetailed(),
+        checkRedisDetailed(),
+        checkGeminiAI(),
+      ]);
 
     const system = getSystemInfo();
     const database = getSettledResult(databaseResult, {
@@ -87,7 +89,11 @@ async function GET() {
     });
 
     // Determine overall status
-    const overallStatus = determineDetailedStatus(database, redisCheck, geminiAI);
+    const overallStatus = determineDetailedStatus(
+      database,
+      redisCheck,
+      geminiAI
+    );
 
     const healthResult: DetailedHealthCheck = {
       status: overallStatus,
@@ -112,8 +118,12 @@ async function GET() {
       geminiStatus: geminiAI.status,
     });
 
-    const statusCode = overallStatus === 'healthy' ? 200 : 
-                      overallStatus === 'degraded' ? 200 : 503;
+    const statusCode =
+      overallStatus === 'healthy'
+        ? 200
+        : overallStatus === 'degraded'
+          ? 200
+          : 503;
 
     return NextResponse.json(healthResult, { status: statusCode });
   } catch (error) {
@@ -155,14 +165,14 @@ function getSystemInfo() {
       usagePercent: Math.round(memoryUsagePercent),
     },
     cpu: {
-      loadAverage: process.platform !== 'win32' ? require('os').loadavg() : [0, 0, 0],
+      loadAverage: process.platform !== 'win32' ? os.loadavg() : [0, 0, 0],
     },
   };
 }
 
 async function checkDatabaseDetailed() {
   const startTime = Date.now();
-  
+
   try {
     // Check basic connectivity
     await prisma.$queryRaw`SELECT 1`;
@@ -176,7 +186,8 @@ async function checkDatabaseDetailed() {
     ]);
 
     return {
-      status: responseTime < 1000 ? 'healthy' as const : 'degraded' as const,
+      status:
+        responseTime < 1000 ? ('healthy' as const) : ('degraded' as const),
       responseTime,
       statistics: {
         totalUsers: userCount,
@@ -195,12 +206,12 @@ async function checkDatabaseDetailed() {
 
 async function checkRedisDetailed() {
   const startTime = Date.now();
-  
+
   try {
     // Test Redis connectivity
     const result = await redis.ping();
     const responseTime = Date.now() - startTime;
-    
+
     if (result !== 'PONG') {
       return {
         status: 'unhealthy' as const,
@@ -212,18 +223,18 @@ async function checkRedisDetailed() {
     // Get Redis info
     const info = await redis.info('memory');
     const keyCount = await redis.dbsize();
-    
+
     // Parse memory info
     const memoryLines = info.split('\r\n');
     const usedMemory = memoryLines
-      .find(line => line.startsWith('used_memory:'))
+      .find((line) => line.startsWith('used_memory:'))
       ?.split(':')[1];
     const peakMemory = memoryLines
-      .find(line => line.startsWith('used_memory_peak:'))
+      .find((line) => line.startsWith('used_memory_peak:'))
       ?.split(':')[1];
 
     return {
-      status: responseTime < 500 ? 'healthy' as const : 'degraded' as const,
+      status: responseTime < 500 ? ('healthy' as const) : ('degraded' as const),
       responseTime,
       memory: {
         used: usedMemory ? Math.round(parseInt(usedMemory) / 1024 / 1024) : 0, // MB
@@ -242,22 +253,26 @@ async function checkRedisDetailed() {
 
 async function checkGeminiAI() {
   const startTime = Date.now();
-  
+
   try {
     // Simple test to check if Gemini API is accessible
     // We'll make a minimal request to test connectivity
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-      method: 'GET',
-      headers: {
-        'x-goog-api-key': process.env.GEMINI_API_KEY || '',
-      },
-    });
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models',
+      {
+        method: 'GET',
+        headers: {
+          'x-goog-api-key': process.env.GEMINI_API_KEY || '',
+        },
+      }
+    );
 
     const responseTime = Date.now() - startTime;
 
     if (response.ok) {
       return {
-        status: responseTime < 2000 ? 'healthy' as const : 'degraded' as const,
+        status:
+          responseTime < 2000 ? ('healthy' as const) : ('degraded' as const),
         lastCheck: new Date().toISOString(),
         responseTime,
       };
@@ -291,9 +306,9 @@ function getSettledResult<T>(
 }
 
 function determineDetailedStatus(
-  database: any,
-  redis: any,
-  gemini: any
+  database: { status: string },
+  redis: { status: string },
+  gemini: { status: string }
 ): 'healthy' | 'degraded' | 'unhealthy' {
   // Critical services: database and redis
   if (database.status === 'unhealthy' || redis.status === 'unhealthy') {
@@ -301,7 +316,11 @@ function determineDetailedStatus(
   }
 
   // If critical services are degraded or external service is unhealthy
-  if (database.status === 'degraded' || redis.status === 'degraded' || gemini.status === 'unhealthy') {
+  if (
+    database.status === 'degraded' ||
+    redis.status === 'degraded' ||
+    gemini.status === 'unhealthy'
+  ) {
     return 'degraded';
   }
 

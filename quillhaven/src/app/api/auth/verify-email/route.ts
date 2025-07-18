@@ -1,11 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { verifyEmail } from '@/lib/auth';
 import { withCors, withRateLimit } from '@/lib/middleware';
-import { withErrorHandler, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 async function handleVerifyEmail(req: NextRequest) {
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
   // Get token from query parameters
@@ -31,37 +43,50 @@ async function handleVerifyEmail(req: NextRequest) {
 
   if (!result.success) {
     // Log failed verification attempt
-    SecurityLogger.logAuthAttempt(false, result.user?.email || 'unknown', clientIP, userAgent);
-    
+    SecurityLogger.logAuthAttempt(
+      false,
+      result.user?.email || 'unknown',
+      clientIP,
+      userAgent
+    );
+
     logger.warn('Email verification failed', {
       token: token.substring(0, 8) + '...',
       reason: result.message,
       clientIP,
-      userAgent
+      userAgent,
     });
 
-    if (result.message?.includes('expired') || result.message?.includes('invalid')) {
+    if (
+      result.message?.includes('expired') ||
+      result.message?.includes('invalid')
+    ) {
       throw new ValidationError(result.message || 'Email verification failed');
     }
-    
+
     throw new ValidationError('Email verification failed');
   }
 
   // Log successful email verification
-  SecurityLogger.logAuthAttempt(true, result.user?.email || 'unknown', clientIP, userAgent);
-  
+  SecurityLogger.logAuthAttempt(
+    true,
+    result.user?.email || 'unknown',
+    clientIP,
+    userAgent
+  );
+
   BusinessLogger.logUserAction('email_verified', result.user?.id || 'unknown', {
     email: result.user?.email,
     clientIP,
     userAgent,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Email verification successful', {
     userId: result.user?.id,
     email: result.user?.email,
     clientIP,
-    userAgent
+    userAgent,
   });
 
   return NextResponse.json(
@@ -80,12 +105,14 @@ async function handleVerifyEmail(req: NextRequest) {
 }
 
 // Apply middleware
-const handler = withErrorHandler(withCors(
-  withRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 50, // 50 verification attempts per 15 minutes (more lenient for testing)
-    message: 'Too many verification attempts. Please try again later.',
-  })(handleVerifyEmail)
-));
+const handler = withErrorHandler(
+  withCors(
+    withRateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 50, // 50 verification attempts per 15 minutes (more lenient for testing)
+      message: 'Too many verification attempts. Please try again later.',
+    })(handleVerifyEmail)
+  )
+);
 
 export { handler as GET };

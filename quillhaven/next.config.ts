@@ -4,7 +4,7 @@ const nextConfig: NextConfig = {
   // Performance optimizations
   compress: true,
   poweredByHeader: false,
-  
+
   // Image optimization
   images: {
     formats: ['image/webp', 'image/avif'],
@@ -73,7 +73,7 @@ const nextConfig: NextConfig = {
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
-              "upgrade-insecure-requests",
+              'upgrade-insecure-requests',
             ].join('; '),
           },
           // Strict Transport Security (HTTPS only)

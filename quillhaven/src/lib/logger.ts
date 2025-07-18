@@ -81,7 +81,7 @@ class Logger {
     const level = entry.level.padEnd(5);
     const message = entry.message;
     const data = entry.data ? ` | ${JSON.stringify(entry.data)}` : '';
-    
+
     return `[${timestamp}] ${level} ${message}${data}`;
   }
 
@@ -147,7 +147,7 @@ class Logger {
     // In a real implementation, you'd use fs.appendFile or a logging library
     // For now, we'll just log to console in production
     if (this.config.environment === 'production') {
-      logs.forEach(log => {
+      logs.forEach((log) => {
         console.log(JSON.stringify(log));
       });
     }
@@ -171,28 +171,28 @@ class Logger {
 
   public debug(message: string, data?: Record<string, unknown>): void {
     if (!this.shouldLog('DEBUG')) return;
-    
+
     const entry = this.createLogEntry('DEBUG', message, data);
     this.writeLog(entry);
   }
 
   public info(message: string, data?: Record<string, unknown>): void {
     if (!this.shouldLog('INFO')) return;
-    
+
     const entry = this.createLogEntry('INFO', message, data);
     this.writeLog(entry);
   }
 
   public warn(message: string, data?: Record<string, unknown>): void {
     if (!this.shouldLog('WARN')) return;
-    
+
     const entry = this.createLogEntry('WARN', message, data);
     this.writeLog(entry);
   }
 
   public error(message: string, data?: Record<string, unknown>): void {
     if (!this.shouldLog('ERROR')) return;
-    
+
     const entry = this.createLogEntry('ERROR', message, data);
     this.writeLog(entry);
   }
@@ -201,16 +201,17 @@ class Logger {
     const contextLogger = new Logger(this.config);
     contextLogger.logBuffer = this.logBuffer;
     contextLogger.flushInterval = this.flushInterval;
-    
+
     // Override createLogEntry to include context
-    const originalCreateLogEntry = contextLogger.createLogEntry.bind(contextLogger);
+    const originalCreateLogEntry =
+      contextLogger.createLogEntry.bind(contextLogger);
     contextLogger.createLogEntry = (level, message, data) => {
       const entry = originalCreateLogEntry(level, message, data);
       entry.requestId = requestId;
       entry.userId = userId;
       return entry;
     };
-    
+
     return contextLogger;
   }
 
@@ -238,7 +239,10 @@ export class PerformanceLogger {
     this.timers.set(label, Date.now());
   }
 
-  public static endTimer(label: string, additionalData?: Record<string, unknown>): void {
+  public static endTimer(
+    label: string,
+    additionalData?: Record<string, unknown>
+  ): void {
     const startTime = this.timers.get(label);
     if (!startTime) {
       logger.warn('Timer not found', { label });
@@ -266,10 +270,10 @@ export class PerformanceLogger {
       this.endTimer(label, { success: true, ...additionalData });
       return result;
     } catch (error) {
-      this.endTimer(label, { 
-        success: false, 
+      this.endTimer(label, {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        ...additionalData 
+        ...additionalData,
       });
       throw error;
     }
@@ -286,10 +290,10 @@ export class PerformanceLogger {
       this.endTimer(label, { success: true, ...additionalData });
       return result;
     } catch (error) {
-      this.endTimer(label, { 
-        success: false, 
+      this.endTimer(label, {
+        success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
-        ...additionalData 
+        ...additionalData,
       });
       throw error;
     }

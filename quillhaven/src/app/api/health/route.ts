@@ -69,8 +69,12 @@ export async function GET() {
       })),
     });
 
-    const statusCode = overallStatus === 'healthy' ? 200 : 
-                      overallStatus === 'degraded' ? 200 : 503;
+    const statusCode =
+      overallStatus === 'healthy'
+        ? 200
+        : overallStatus === 'degraded'
+          ? 200
+          : 503;
 
     return NextResponse.json(healthResult, { status: statusCode });
   } catch (error) {
@@ -96,17 +100,18 @@ export async function GET() {
 
 async function checkDatabase(): Promise<HealthCheck> {
   const startTime = Date.now();
-  
+
   try {
     // Simple query to check database connectivity
     await prisma.$queryRaw`SELECT 1`;
-    
+
     const responseTime = Date.now() - startTime;
-    
+
     return {
       status: responseTime < 1000 ? 'healthy' : 'degraded',
       responseTime,
-      message: responseTime < 1000 ? 'Database is responsive' : 'Database is slow',
+      message:
+        responseTime < 1000 ? 'Database is responsive' : 'Database is slow',
     };
   } catch (error) {
     return {
@@ -122,12 +127,12 @@ async function checkDatabase(): Promise<HealthCheck> {
 
 async function checkRedis(): Promise<HealthCheck> {
   const startTime = Date.now();
-  
+
   try {
     // Test Redis connectivity with a simple ping
     const result = await redis.ping();
     const responseTime = Date.now() - startTime;
-    
+
     if (result === 'PONG') {
       return {
         status: responseTime < 500 ? 'healthy' : 'degraded',
@@ -197,7 +202,9 @@ async function checkMemory(): Promise<HealthCheck> {
   }
 }
 
-function getCheckResult(settledResult: PromiseSettledResult<HealthCheck>): HealthCheck {
+function getCheckResult(
+  settledResult: PromiseSettledResult<HealthCheck>
+): HealthCheck {
   if (settledResult.status === 'fulfilled') {
     return settledResult.value;
   } else {
@@ -205,17 +212,20 @@ function getCheckResult(settledResult: PromiseSettledResult<HealthCheck>): Healt
       status: 'unhealthy',
       message: 'Health check failed',
       details: {
-        error: settledResult.reason instanceof Error 
-          ? settledResult.reason.message 
-          : 'Unknown error',
+        error:
+          settledResult.reason instanceof Error
+            ? settledResult.reason.message
+            : 'Unknown error',
       },
     };
   }
 }
 
-function determineOverallStatus(checks: Record<string, HealthCheck>): 'healthy' | 'degraded' | 'unhealthy' {
-  const statuses = Object.values(checks).map(check => check.status);
-  
+function determineOverallStatus(
+  checks: Record<string, HealthCheck>
+): 'healthy' | 'degraded' | 'unhealthy' {
+  const statuses = Object.values(checks).map((check) => check.status);
+
   if (statuses.includes('unhealthy')) {
     return 'unhealthy';
   } else if (statuses.includes('degraded')) {

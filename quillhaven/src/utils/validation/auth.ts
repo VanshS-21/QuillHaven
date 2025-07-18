@@ -36,8 +36,9 @@ export function validateEmail(email: string): ValidationResult {
   const trimmedEmail = email.trim().toLowerCase();
 
   // Basic format validation - more strict regex
-  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-  
+  const emailRegex =
+    /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
+
   if (!emailRegex.test(trimmedEmail)) {
     errors.push('Invalid email format');
   }
@@ -63,6 +64,10 @@ export function validateEmail(email: string): ValidationResult {
   const [localPart, domain] = trimmedEmail.split('@');
   if (localPart && localPart.length > 64) {
     errors.push('Email local part is too long');
+  }
+
+  if (domain && domain.length > 253) {
+    errors.push('Email domain is too long');
   }
 
   return {
@@ -91,7 +96,9 @@ export function validatePassword(password: string): ValidationResult {
   const hasUppercase = /[A-Z]/.test(password);
   const hasLowercase = /[a-z]/.test(password);
   const hasNumbers = /\d/.test(password);
-  const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+  const hasSpecialChars = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(
+    password
+  );
 
   if (!hasUppercase) {
     errors.push('Password must contain at least one uppercase letter');
@@ -120,15 +127,25 @@ export function validatePassword(password: string): ValidationResult {
     errors.push('Password cannot be all the same character');
   }
 
-  if (/^(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/i.test(password)) {
+  if (
+    /^(012|123|234|345|456|567|678|789|890|abc|bcd|cde|def|efg|fgh|ghi|hij|ijk|jkl|klm|lmn|mno|nop|opq|pqr|qrs|rst|stu|tuv|uvw|vwx|wxy|xyz)/i.test(
+      password
+    )
+  ) {
     errors.push('Password cannot contain common sequences');
   }
 
   // Check for keyboard patterns
   const keyboardPatterns = [
-    'qwerty', 'asdf', 'zxcv', '1234', 'qwertyuiop', 'asdfghjkl', 'zxcvbnm'
+    'qwerty',
+    'asdf',
+    'zxcv',
+    '1234',
+    'qwertyuiop',
+    'asdfghjkl',
+    'zxcvbnm',
   ];
-  
+
   for (const pattern of keyboardPatterns) {
     if (lowercasePassword.includes(pattern)) {
       errors.push('Password cannot contain keyboard patterns');
@@ -161,7 +178,9 @@ export function validateUsername(username: string): ValidationResult {
   // Character requirements - alphanumeric, underscore, hyphen only
   const usernameRegex = /^[a-zA-Z0-9_-]+$/;
   if (!usernameRegex.test(trimmedUsername)) {
-    errors.push('Username can only contain letters, numbers, underscores, and hyphens');
+    errors.push(
+      'Username can only contain letters, numbers, underscores, and hyphens'
+    );
   }
 
   // Cannot start or end with special characters
@@ -176,9 +195,28 @@ export function validateUsername(username: string): ValidationResult {
 
   // Reserved usernames
   const reservedUsernames = [
-    'admin', 'administrator', 'root', 'system', 'user', 'guest', 'public',
-    'api', 'www', 'mail', 'ftp', 'test', 'demo', 'support', 'help',
-    'info', 'contact', 'about', 'privacy', 'terms', 'legal', 'security'
+    'admin',
+    'administrator',
+    'root',
+    'system',
+    'user',
+    'guest',
+    'public',
+    'api',
+    'www',
+    'mail',
+    'ftp',
+    'test',
+    'demo',
+    'support',
+    'help',
+    'info',
+    'contact',
+    'about',
+    'privacy',
+    'terms',
+    'legal',
+    'security',
   ];
 
   if (reservedUsernames.includes(trimmedUsername.toLowerCase())) {
@@ -197,19 +235,19 @@ export function validateUsername(username: string): ValidationResult {
  */
 export function validatePhoneNumber(phoneNumber: string): ValidationResult {
   const errors: string[] = [];
-  
+
   // Remove all non-digit characters for validation
   const digitsOnly = phoneNumber.replace(/\D/g, '');
-  
+
   // Check length (10-15 digits is typical for international numbers)
   if (digitsOnly.length < 10) {
     errors.push('Phone number must have at least 10 digits');
   }
-  
+
   if (digitsOnly.length > 15) {
     errors.push('Phone number cannot have more than 15 digits');
   }
-  
+
   // Basic format validation - allow common formats
   const phoneRegex = /^[\+]?[1-9][\d\s\-\(\)\.]{8,20}$/;
   if (!phoneRegex.test(phoneNumber)) {
@@ -345,16 +383,16 @@ export interface PasswordResetData {
  */
 export function validateLogin(data: LoginData): ValidationResult {
   const errors: string[] = [];
-  
+
   const emailResult = validateEmail(data.email);
   if (!emailResult.isValid) {
     errors.push(...emailResult.errors);
   }
-  
+
   if (!data.password || data.password.length === 0) {
     errors.push('Password is required');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -370,29 +408,29 @@ export function validateLogin(data: LoginData): ValidationResult {
  */
 export function validateRegistration(data: RegistrationData): ValidationResult {
   const errors: string[] = [];
-  
+
   const emailResult = validateEmail(data.email);
   if (!emailResult.isValid) {
     errors.push(...emailResult.errors);
   }
-  
+
   const passwordResult = validatePassword(data.password);
   if (!passwordResult.isValid) {
     errors.push(...passwordResult.errors);
   }
-  
+
   if (data.password !== data.confirmPassword) {
     errors.push('Passwords do not match');
   }
-  
+
   if (!data.firstName || data.firstName.trim().length === 0) {
     errors.push('First name is required');
   }
-  
+
   if (!data.lastName || data.lastName.trim().length === 0) {
     errors.push('Last name is required');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -409,23 +447,25 @@ export function validateRegistration(data: RegistrationData): ValidationResult {
 /**
  * Validate password reset data
  */
-export function validatePasswordReset(data: PasswordResetData): ValidationResult {
+export function validatePasswordReset(
+  data: PasswordResetData
+): ValidationResult {
   const errors: string[] = [];
-  
+
   const tokenResult = validateResetToken(data.token);
   if (!tokenResult.isValid) {
     errors.push(...tokenResult.errors);
   }
-  
+
   const passwordResult = validatePassword(data.password);
   if (!passwordResult.isValid) {
     errors.push(...passwordResult.errors);
   }
-  
+
   if (data.password !== data.confirmPassword) {
     errors.push('Passwords do not match');
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,

@@ -7,7 +7,7 @@ import {
 } from '@/utils/validation/auth';
 import { withRateLimit, withCors, withValidation } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
-import { withErrorHandler, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
+import { withErrorHandler, handleDatabaseError } from '@/lib/errorHandler';
 import { logger, PerformanceLogger, SecurityLogger } from '@/lib/logger';
 import { withEmailDegradation } from '@/lib/gracefulDegradation';
 
@@ -38,7 +38,10 @@ async function handleForgotPassword(
   validatedData: ForgotPasswordRequestData
 ) {
   const { email } = validatedData;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
 
   // Initiate password reset with performance monitoring
   const result = await PerformanceLogger.measureAsync(
@@ -83,36 +86,44 @@ async function handleForgotPassword(
             user.passwordResetToken!,
             user.firstName || undefined
           );
-          
+
           if (!emailResult.success) {
             logger.warn('Failed to send password reset email', {
               email: user.email,
               error: emailResult.message,
-              clientIP
+              clientIP,
             });
           }
-          
+
           return emailResult;
         },
         async () => {
-          logger.warn('Email service unavailable for password reset', { 
-            email: user.email, 
-            clientIP 
+          logger.warn('Email service unavailable for password reset', {
+            email: user.email,
+            clientIP,
           });
-          return { success: false, message: 'Email service temporarily unavailable' };
+          return {
+            success: false,
+            message: 'Email service temporarily unavailable',
+          };
         }
       );
     }
   }
 
   // Log security event
-  SecurityLogger.logAuthAttempt(result.success, email, clientIP, req.headers.get('user-agent') || 'unknown');
+  SecurityLogger.logAuthAttempt(
+    result.success,
+    email,
+    clientIP,
+    req.headers.get('user-agent') || 'unknown'
+  );
 
   logger.info('Password reset request processed', {
     email,
     success: result.success,
     clientIP,
-    userAgent: req.headers.get('user-agent')
+    userAgent: req.headers.get('user-agent'),
   });
 
   // Always return success message for security (don't reveal if email exists)
@@ -125,12 +136,14 @@ async function handleForgotPassword(
 }
 
 // Apply middleware
-const handler = withErrorHandler(withCors(
-  withRateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 20, // 20 password reset requests per 15 minutes (more lenient for testing)
-    message: 'Too many password reset requests. Please try again later.',
-  })(withValidation(validateForgotPasswordData, handleForgotPassword))
-));
+const handler = withErrorHandler(
+  withCors(
+    withRateLimit({
+      windowMs: 15 * 60 * 1000, // 15 minutes
+      maxRequests: 20, // 20 password reset requests per 15 minutes (more lenient for testing)
+      message: 'Too many password reset requests. Please try again later.',
+    })(withValidation(validateForgotPasswordData, handleForgotPassword))
+  )
+);
 
 export { handler as POST };

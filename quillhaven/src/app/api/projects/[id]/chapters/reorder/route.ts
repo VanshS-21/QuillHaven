@@ -6,7 +6,13 @@ import {
 } from '@/lib/middleware';
 import { reorderChapters } from '@/services/chapterService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, AuthenticationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  NotFoundError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for chapter reordering
@@ -64,13 +70,12 @@ async function handlePut(
   const orders = validatedData.chapters
     .map((c) => c.order)
     .sort((a, b) => a - b);
-  const expectedOrders = Array.from(
-    { length: orders.length },
-    (_, i) => i + 1
-  );
+  const expectedOrders = Array.from({ length: orders.length }, (_, i) => i + 1);
 
   if (!orders.every((order, index) => order === expectedOrders[index])) {
-    throw new ValidationError('Chapter orders must be sequential starting from 1');
+    throw new ValidationError(
+      'Chapter orders must be sequential starting from 1'
+    );
   }
 
   // Check for duplicate chapter IDs
@@ -85,14 +90,20 @@ async function handlePut(
     'chapters_reorder',
     async () => {
       try {
-        return await reorderChapters(projectId, user.id, validatedData.chapters);
+        return await reorderChapters(
+          projectId,
+          user.id,
+          validatedData.chapters
+        );
       } catch (error) {
         if (error instanceof Error) {
           if (error.message.includes('not found')) {
             throw new NotFoundError('Project not found or access denied');
           }
           if (error.message.includes('do not belong')) {
-            throw new ValidationError('Some chapters do not belong to this project');
+            throw new ValidationError(
+              'Some chapters do not belong to this project'
+            );
           }
         }
         throw handleDatabaseError(error);
@@ -106,14 +117,14 @@ async function handlePut(
     projectId,
     chaptersCount: validatedData.chapters.length,
     chapterIds: chapterIds,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Chapters reordered successfully', {
     userId: user.id,
     projectId,
     chaptersCount: validatedData.chapters.length,
-    chapterIds: chapterIds
+    chapterIds: chapterIds,
   });
 
   return NextResponse.json({
@@ -124,7 +135,9 @@ async function handlePut(
 }
 
 // Apply middleware and export handlers
-export const PUT = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 30, // 30 reorder operations per minute
-})(withAuth(handlePut)));
+export const PUT = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 30, // 30 reorder operations per minute
+  })(withAuth(handlePut))
+);

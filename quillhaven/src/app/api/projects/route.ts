@@ -2,14 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { withApiCache } from '@/lib/apiCache';
 import { listProjects } from '@/services/projectService';
 import { parsePaginationParams, parseSearchParams } from '@/utils/pagination';
-import { verifyAuth } from '@/lib/auth';
-import { withErrorHandler, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger } from '@/lib/logger';
 
 async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
-  // Verify authentication
-  const authResult = await verifyAuth(req);
-  if (!authResult.success || !authResult.user) {
+  const user = (req as AuthenticatedRequest).user;
+
+  // Check if user is authenticated
+  if (!user) {
     throw new AuthenticationError();
   }
 
@@ -30,14 +39,32 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
     'list_projects',
     async () => {
       try {
-        return await listProjects(authResult.user!.id, {
+        return await listProjects(user.id, {
           page: paginationParams.page,
           limit: paginationParams.limit,
-          status: searchParams.get('status') as any,
+          status: (() => {
+            const statusParam = searchParams.get('status');
+            if (!statusParam) return undefined;
+            switch (statusParam.toLowerCase()) {
+              case 'draft':
+                return 'DRAFT';
+              case 'in-progress':
+                return 'IN_PROGRESS';
+              case 'completed':
+                return 'COMPLETED';
+              default:
+                return undefined;
+            }
+          })(),
           genre: searchParams.get('genre') || undefined,
           search: searchParamsData.query,
-          sortBy: (searchParams.get('sortBy') as any) || 'updatedAt',
-          sortOrder: (searchParams.get('sortOrder') as any) || 'desc',
+          sortBy:
+            (searchParams.get('sortBy') as
+              | 'title'
+              | 'createdAt'
+              | 'updatedAt') || 'updatedAt',
+          sortOrder:
+            (searchParams.get('sortOrder') as 'asc' | 'desc') || 'desc',
         });
       } catch (error) {
         // Convert database errors to appropriate app errors
@@ -45,14 +72,14 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
       }
     },
     {
-      userId: authResult.user.id,
+      userId: user.id,
       page: paginationParams.page,
       limit: paginationParams.limit,
     }
   );
 
   logger.info('Projects listed successfully', {
-    userId: authResult.user.id,
+    userId: user.id,
     projectCount: result.projects.length,
     totalProjects: result.pagination.total,
     page: result.pagination.page,
@@ -67,15 +94,22 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
   });
 }
 
-// Apply error handling and caching middleware
+// Apply error handling, rate limiting, and caching middleware
 export const GET = withErrorHandler(
-  withApiCache(handleGetProjects, {
-    ttl: 180, // 3 minutes
-    varyByUser: true,
-    varyByQuery: true,
-    shouldCache: (req, res) => {
-      // Only cache successful responses
-      return res.status === 200;
-    },
-  })
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  })(
+    withAuth(
+      withApiCache(handleGetProjects, {
+        ttl: 180, // 3 minutes
+        varyByUser: true,
+        varyByQuery: true,
+        shouldCache: (req, res) => {
+          // Only cache successful responses
+          return res.status === 200;
+        },
+      })
+    )
+  )
 );

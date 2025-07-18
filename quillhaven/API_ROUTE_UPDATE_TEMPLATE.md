@@ -8,54 +8,78 @@ Add these imports to the top of each route file:
 
 ```typescript
 // Add these imports
-import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, ConflictError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, BusinessLogger, SecurityLogger } from '@/lib/logger';
-import { withGeminiDegradation, withRedisDegradation, withEmailDegradation } from '@/lib/gracefulDegradation';
+import {
+  withErrorHandler,
+  ValidationError,
+  NotFoundError,
+  AuthenticationError,
+  ConflictError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  BusinessLogger,
+  SecurityLogger,
+} from '@/lib/logger';
+import {
+  withGeminiDegradation,
+  withRedisDegradation,
+  withEmailDegradation,
+} from '@/lib/gracefulDegradation';
 ```
 
 ## Handler Function Updates
 
 ### Before (Old Pattern):
+
 ```typescript
 async function handleSomething(req: NextRequest) {
   try {
     const user = (req as AuthenticatedRequest).user;
-    
+
     if (!user) {
-      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
     }
-    
+
     if (!someId || typeof someId !== 'string') {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
     }
-    
+
     const result = await someService.doSomething(someId, user.id);
-    
+
     if (!result) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 });
     }
-    
+
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
     console.error('Error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
   }
 }
 ```
 
 ### After (New Pattern):
+
 ```typescript
 async function handleSomething(req: NextRequest) {
   const user = (req as AuthenticatedRequest).user;
-  
+
   if (!user) {
     throw new AuthenticationError();
   }
-  
+
   if (!someId || typeof someId !== 'string') {
     throw new ValidationError('Invalid ID');
   }
-  
+
   const result = await PerformanceLogger.measureAsync(
     'operation_name',
     async () => {
@@ -67,23 +91,23 @@ async function handleSomething(req: NextRequest) {
     },
     { userId: user.id, someId }
   );
-  
+
   if (!result) {
     throw new NotFoundError('Resource not found');
   }
-  
+
   // Log business event if applicable
   BusinessLogger.logUserAction('action_name', user.id, {
     resourceId: someId,
     // other relevant data
   });
-  
+
   logger.info('Operation completed successfully', {
     userId: user.id,
     resourceId: someId,
     // other relevant data
   });
-  
+
   return NextResponse.json({ success: true, data: result });
 }
 ```
@@ -91,20 +115,25 @@ async function handleSomething(req: NextRequest) {
 ## Export Updates
 
 ### Before:
+
 ```typescript
 export const GET = withAuth(handleGet);
 export const POST = withRateLimit(config)(withAuth(handlePost));
 ```
 
 ### After:
+
 ```typescript
 export const GET = withErrorHandler(withAuth(handleGet));
-export const POST = withErrorHandler(withRateLimit(config)(withAuth(handlePost)));
+export const POST = withErrorHandler(
+  withRateLimit(config)(withAuth(handlePost))
+);
 ```
 
 ## Specific Error Handling Patterns
 
 ### 1. Authentication Errors
+
 ```typescript
 if (!user) {
   throw new AuthenticationError();
@@ -112,6 +141,7 @@ if (!user) {
 ```
 
 ### 2. Validation Errors
+
 ```typescript
 // For Zod validation
 try {
@@ -130,6 +160,7 @@ if (!id || typeof id !== 'string') {
 ```
 
 ### 3. Not Found Errors
+
 ```typescript
 if (!resource) {
   throw new NotFoundError('Resource not found or access denied');
@@ -137,6 +168,7 @@ if (!resource) {
 ```
 
 ### 4. Database Errors
+
 ```typescript
 try {
   return await databaseOperation();
@@ -146,6 +178,7 @@ try {
 ```
 
 ### 5. External Service Errors (AI, Email, etc.)
+
 ```typescript
 // For AI services
 const result = await withGeminiDegradation(
@@ -153,7 +186,10 @@ const result = await withGeminiDegradation(
     return await aiService.generate(prompt);
   },
   async () => {
-    throw new ExternalServiceError('Gemini AI', 'AI service temporarily unavailable');
+    throw new ExternalServiceError(
+      'Gemini AI',
+      'AI service temporarily unavailable'
+    );
   }
 );
 
@@ -172,6 +208,7 @@ await withEmailDegradation(
 ## Logging Patterns
 
 ### 1. Performance Logging
+
 ```typescript
 const result = await PerformanceLogger.measureAsync(
   'operation_name',
@@ -183,6 +220,7 @@ const result = await PerformanceLogger.measureAsync(
 ```
 
 ### 2. Business Event Logging
+
 ```typescript
 // User actions
 BusinessLogger.logUserAction('resource_created', user.id, {
@@ -213,6 +251,7 @@ BusinessLogger.logExport(
 ```
 
 ### 3. Security Event Logging
+
 ```typescript
 // Authentication attempts
 SecurityLogger.logAuthAttempt(success, email, clientIP, userAgent);
@@ -225,6 +264,7 @@ SecurityLogger.logDataAccess('resource', 'action', userId, success);
 ```
 
 ### 4. General Logging
+
 ```typescript
 logger.info('Operation completed', {
   userId,
@@ -243,26 +283,31 @@ logger.warn('Potential issue detected', {
 ## Route-Specific Patterns
 
 ### Auth Routes
+
 - Use `SecurityLogger.logAuthAttempt()` for login attempts
 - Log client IP and user agent
 - Use appropriate error types (AuthenticationError, ValidationError)
 
 ### Chapter Routes
+
 - Use `BusinessLogger.logAIGeneration()` for AI operations
 - Use `withGeminiDegradation()` for AI service calls
 - Log chapter metadata (word count, project ID)
 
 ### Project Routes
+
 - Use `BusinessLogger.logUserAction()` for CRUD operations
 - Log project statistics (chapter count, word count)
 - Include project metadata in logs
 
 ### Export Routes
+
 - Use `BusinessLogger.logExport()` for export operations
 - Use `SecurityLogger.logDataAccess()` for data access
 - Include export format and size in logs
 
 ### User Data Routes
+
 - Use `SecurityLogger.logDataAccess()` for privacy operations
 - Log data export/deletion requests
 - Include client IP for audit trail
@@ -290,6 +335,7 @@ logger.warn('Potential issue detected', {
 ## Testing
 
 After updating each route, test:
+
 1. Success scenarios
 2. Authentication failures
 3. Validation errors

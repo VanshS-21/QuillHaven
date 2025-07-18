@@ -37,7 +37,7 @@ export class CacheService {
       const cacheKey = this.getKey(key, options.prefix);
       const ttl = options.ttl || this.defaultTTL;
       const serializedValue = JSON.stringify(value);
-      
+
       await redis.setex(cacheKey, ttl, serializedValue);
     } catch (error) {
       console.error('Cache set error:', error);
@@ -52,9 +52,9 @@ export class CacheService {
     try {
       const cacheKey = this.getKey(key, options.prefix);
       const value = await redis.get(cacheKey);
-      
+
       if (!value) return null;
-      
+
       return JSON.parse(value) as T;
     } catch (error) {
       console.error('Cache get error:', error);
@@ -81,7 +81,7 @@ export class CacheService {
     try {
       const searchPattern = this.getKey(pattern, options.prefix);
       const keys = await redis.keys(searchPattern);
-      
+
       if (keys.length > 0) {
         await redis.del(...keys);
       }
@@ -140,7 +140,11 @@ export class CacheService {
   /**
    * Set expiration for existing key
    */
-  async expire(key: string, ttl: number, options: CacheOptions = {}): Promise<void> {
+  async expire(
+    key: string,
+    ttl: number,
+    options: CacheOptions = {}
+  ): Promise<void> {
     try {
       const cacheKey = this.getKey(key, options.prefix);
       await redis.expire(cacheKey, ttl);
@@ -152,12 +156,15 @@ export class CacheService {
   /**
    * Get multiple keys at once
    */
-  async mget<T>(keys: string[], options: CacheOptions = {}): Promise<(T | null)[]> {
+  async mget<T>(
+    keys: string[],
+    options: CacheOptions = {}
+  ): Promise<(T | null)[]> {
     try {
-      const cacheKeys = keys.map(key => this.getKey(key, options.prefix));
+      const cacheKeys = keys.map((key) => this.getKey(key, options.prefix));
       const values = await redis.mget(...cacheKeys);
-      
-      return values.map(value => {
+
+      return values.map((value) => {
         if (!value) return null;
         try {
           return JSON.parse(value) as T;
@@ -174,17 +181,20 @@ export class CacheService {
   /**
    * Set multiple keys at once
    */
-  async mset(keyValuePairs: Record<string, unknown>, options: CacheOptions = {}): Promise<void> {
+  async mset(
+    keyValuePairs: Record<string, unknown>,
+    options: CacheOptions = {}
+  ): Promise<void> {
     try {
       const pipeline = redis.pipeline();
       const ttl = options.ttl || this.defaultTTL;
-      
+
       Object.entries(keyValuePairs).forEach(([key, value]) => {
         const cacheKey = this.getKey(key, options.prefix);
         const serializedValue = JSON.stringify(value);
         pipeline.setex(cacheKey, ttl, serializedValue);
       });
-      
+
       await pipeline.exec();
     } catch (error) {
       console.error('Cache mset error:', error);
@@ -198,7 +208,7 @@ export class CacheService {
     try {
       const searchPrefix = prefix || this.keyPrefix;
       const keys = await redis.keys(`${searchPrefix}*`);
-      
+
       if (keys.length > 0) {
         await redis.del(...keys);
       }
@@ -218,11 +228,11 @@ export class CacheService {
     try {
       const info = await redis.info('memory');
       const keyCount = await redis.dbsize();
-      
+
       // Extract memory usage from info string
       const memoryMatch = info.match(/used_memory_human:([^\r\n]+)/);
       const memoryUsage = memoryMatch ? memoryMatch[1] : 'Unknown';
-      
+
       return {
         totalKeys: keyCount,
         memoryUsage,

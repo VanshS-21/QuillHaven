@@ -3,10 +3,19 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { DataPrivacyService } from '@/services/dataPrivacyService';
 import { validateString } from '@/utils/validation/input';
-import { withErrorHandler, AuthenticationError, ValidationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  ValidationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, SecurityLogger } from '@/lib/logger';
 
 interface ExportRequestData {
@@ -18,9 +27,12 @@ interface ExportRequestData {
 }
 
 async function handleDataExport(req: NextRequest) {
-  const user = (req as any).user;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
-  
+  const user = (req as AuthenticatedRequest).user;
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
+
   if (!user) {
     throw new AuthenticationError();
   }
@@ -83,9 +95,12 @@ async function handleDataExport(req: NextRequest) {
   // Set appropriate headers
   const timestamp = new Date().toISOString().split('T')[0];
   const filename = `quillhaven-data-export-${timestamp}.${format}`;
-  
+
   const headers = new Headers();
-  headers.set('Content-Type', format === 'zip' ? 'application/zip' : 'application/json');
+  headers.set(
+    'Content-Type',
+    format === 'zip' ? 'application/zip' : 'application/json'
+  );
   headers.set('Content-Disposition', `attachment; filename="${filename}"`);
   headers.set('Content-Length', exportBuffer.length.toString());
 

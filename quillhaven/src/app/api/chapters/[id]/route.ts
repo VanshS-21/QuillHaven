@@ -10,7 +10,13 @@ import {
   deleteChapter,
 } from '@/services/chapterService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  NotFoundError,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for chapter updates
@@ -119,8 +125,8 @@ async function handlePut(
         throw handleDatabaseError(error);
       }
     },
-    { 
-      userId: user.id, 
+    {
+      userId: user.id,
       chapterId,
       fieldsUpdated: Object.keys(validatedData),
       contentLength: validatedData.content?.length || 0,

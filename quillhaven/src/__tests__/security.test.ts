@@ -2,8 +2,20 @@
  * Security tests for QuillHaven application
  */
 
-import { validateString, validateNumber, sanitizeHtml, sanitizeText } from '@/utils/validation/input';
-import { encryptText, decryptText, UserContentEncryption, hashData, verifyHashedData } from '@/lib/encryption';
+import {
+  validateString,
+  sanitizeHtml,
+  sanitizeText,
+  validateDatabaseIdentifier,
+  validateFileUpload,
+} from '@/utils/validation/input';
+import {
+  encryptText,
+  decryptText,
+  UserContentEncryption,
+  hashData,
+  verifyHashedData,
+} from '@/lib/encryption';
 import { validateEmail, validatePassword } from '@/utils/validation/auth';
 
 describe('Input Validation and Sanitization', () => {
@@ -15,14 +27,19 @@ describe('Input Validation and Sanitization', () => {
     });
 
     it('should validate string length', () => {
-      const result = validateString('ab', 'test', { minLength: 3, maxLength: 10 });
+      const result = validateString('ab', 'test', {
+        minLength: 3,
+        maxLength: 10,
+      });
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('test must be at least 3 characters long');
+      expect(result.errors).toContain(
+        'test must be at least 3 characters long'
+      );
     });
 
     it('should validate string patterns', () => {
-      const result = validateString('invalid-email', 'email', { 
-        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/ 
+      const result = validateString('invalid-email', 'email', {
+        pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
       });
       expect(result.isValid).toBe(false);
       expect(result.errors).toContain('email format is invalid');
@@ -115,7 +132,11 @@ describe('Data Encryption', () => {
     });
 
     it('should encrypt and decrypt JSON data', () => {
-      const jsonData = { title: 'Test Chapter', content: testData, wordCount: 100 };
+      const jsonData = {
+        title: 'Test Chapter',
+        content: testData,
+        wordCount: 100,
+      };
       const encrypted = encryption.encryptJSON(jsonData);
       const decrypted = encryption.decryptJSON(encrypted);
       expect(decrypted).toEqual(jsonData);
@@ -154,7 +175,7 @@ describe('Authentication Validation', () => {
         'user123@test-domain.org',
       ];
 
-      validEmails.forEach(email => {
+      validEmails.forEach((email) => {
         const result = validateEmail(email);
         expect(result.isValid).toBe(true);
       });
@@ -170,7 +191,7 @@ describe('Authentication Validation', () => {
         'user name@domain.com',
       ];
 
-      invalidEmails.forEach(email => {
+      invalidEmails.forEach((email) => {
         const result = validateEmail(email);
         expect(result.isValid).toBe(false);
       });
@@ -185,7 +206,7 @@ describe('Authentication Validation', () => {
         'Str0ng#P@ssw0rd',
       ];
 
-      strongPasswords.forEach(password => {
+      strongPasswords.forEach((password) => {
         const result = validatePassword(password);
         expect(result.isValid).toBe(true);
       });
@@ -202,7 +223,7 @@ describe('Authentication Validation', () => {
         'Pass1!', // too short
       ];
 
-      weakPasswords.forEach(password => {
+      weakPasswords.forEach((password) => {
         const result = validatePassword(password);
         expect(result.isValid).toBe(false);
       });
@@ -217,12 +238,12 @@ describe('Authentication Validation', () => {
         'admin',
       ];
 
-      commonPasswords.forEach(password => {
+      commonPasswords.forEach((password) => {
         const result = validatePassword(password);
         expect(result.isValid).toBe(false);
-        expect(result.errors.some(error => 
-          error.includes('too common')
-        )).toBe(true);
+        expect(
+          result.errors.some((error) => error.includes('too common'))
+        ).toBe(true);
       });
     });
   });
@@ -230,24 +251,30 @@ describe('Authentication Validation', () => {
 
 describe('SQL Injection Prevention', () => {
   it('should validate database identifiers', () => {
-    const { validateDatabaseIdentifier } = require('@/utils/validation/input');
-    
     // Valid identifiers
     expect(validateDatabaseIdentifier('user_id', 'field').isValid).toBe(true);
-    expect(validateDatabaseIdentifier('project-123', 'field').isValid).toBe(true);
-    expect(validateDatabaseIdentifier('valid_name', 'field').isValid).toBe(true);
+    expect(validateDatabaseIdentifier('project-123', 'field').isValid).toBe(
+      true
+    );
+    expect(validateDatabaseIdentifier('valid_name', 'field').isValid).toBe(
+      true
+    );
 
     // Invalid identifiers (potential SQL injection)
-    expect(validateDatabaseIdentifier('user; DROP TABLE users;--', 'field').isValid).toBe(false);
-    expect(validateDatabaseIdentifier("user' OR '1'='1", 'field').isValid).toBe(false);
-    expect(validateDatabaseIdentifier('SELECT * FROM users', 'field').isValid).toBe(false);
+    expect(
+      validateDatabaseIdentifier('user; DROP TABLE users;--', 'field').isValid
+    ).toBe(false);
+    expect(validateDatabaseIdentifier("user' OR '1'='1", 'field').isValid).toBe(
+      false
+    );
+    expect(
+      validateDatabaseIdentifier('SELECT * FROM users', 'field').isValid
+    ).toBe(false);
   });
 });
 
 describe('File Upload Security', () => {
   it('should validate file types and sizes', () => {
-    const { validateFileUpload } = require('@/utils/validation/input');
-    
     // Mock file objects
     const validFile = {
       name: 'document.pdf',

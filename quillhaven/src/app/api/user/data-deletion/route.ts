@@ -3,11 +3,24 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth, withRateLimit } from '@/lib/middleware';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { DataPrivacyService } from '@/services/dataPrivacyService';
 import { validateString } from '@/utils/validation/input';
-import { withErrorHandler, ValidationError, AuthenticationError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 interface DeletionRequestData {
   confirmationToken?: string;
@@ -15,10 +28,13 @@ interface DeletionRequestData {
 }
 
 async function handleDataDeletion(req: NextRequest) {
-  const user = (req as any).user;
-  const clientIP = req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown';
+  const user = (req as AuthenticatedRequest).user;
+  const clientIP =
+    req.headers.get('x-forwarded-for') ||
+    req.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
-  
+
   if (!user) {
     throw new AuthenticationError();
   }
@@ -55,29 +71,36 @@ async function handleDataDeletion(req: NextRequest) {
     );
 
     // Log security event for data deletion request
-    SecurityLogger.logDataAccess('user_data', 'deletion_request', user.id, result.success);
-    
+    SecurityLogger.logDataAccess(
+      'user_data',
+      'deletion_request',
+      user.id,
+      result.success
+    );
+
     BusinessLogger.logUserAction('data_deletion_request', user.id, {
       clientIP,
       userAgent,
       success: result.success,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     logger.info('Data deletion request processed', {
       userId: user.id,
       success: result.success,
       clientIP,
-      userAgent
-    });
-    
-    return NextResponse.json({
-      success: result.success,
-      message: result.message,
-    }, {
-      status: result.success ? 200 : 400,
+      userAgent,
     });
 
+    return NextResponse.json(
+      {
+        success: result.success,
+        message: result.message,
+      },
+      {
+        status: result.success ? 200 : 400,
+      }
+    );
   } else if (action === 'confirm') {
     // Confirm and execute data deletion
     if (!requestData.confirmationToken) {
@@ -85,11 +108,15 @@ async function handleDataDeletion(req: NextRequest) {
     }
 
     // Validate confirmation token
-    const tokenValidation = validateString(requestData.confirmationToken, 'confirmationToken', {
-      required: true,
-      minLength: 32,
-      maxLength: 128,
-    });
+    const tokenValidation = validateString(
+      requestData.confirmationToken,
+      'confirmationToken',
+      {
+        required: true,
+        minLength: 32,
+        maxLength: 128,
+      }
+    );
 
     if (!tokenValidation.isValid) {
       throw new ValidationError('Invalid confirmation token');
@@ -101,67 +128,88 @@ async function handleDataDeletion(req: NextRequest) {
     const deletionResult = await PerformanceLogger.measureAsync(
       'data_deletion_execution',
       async () => {
-        return await dataPrivacyService.deleteUserData(user.id, confirmationToken);
+        return await dataPrivacyService.deleteUserData(
+          user.id,
+          confirmationToken
+        );
       },
       { userId: user.id, clientIP }
     );
 
     if (!deletionResult.success) {
       // Log failed deletion attempt
-      SecurityLogger.logDataAccess('user_data', 'deletion_failed', user.id, false);
-      
+      SecurityLogger.logDataAccess(
+        'user_data',
+        'deletion_failed',
+        user.id,
+        false
+      );
+
       logger.warn('Data deletion failed', {
         userId: user.id,
         errors: deletionResult.errors,
         clientIP,
-        userAgent
+        userAgent,
       });
 
-      return NextResponse.json({
-        success: false,
-        message: 'Failed to delete user data',
-        errors: deletionResult.errors,
-      }, {
-        status: 400,
-      });
+      return NextResponse.json(
+        {
+          success: false,
+          message: 'Failed to delete user data',
+          errors: deletionResult.errors,
+        },
+        {
+          status: 400,
+        }
+      );
     }
 
     // Log successful data deletion
-    SecurityLogger.logDataAccess('user_data', 'deletion_completed', user.id, true);
-    
+    SecurityLogger.logDataAccess(
+      'user_data',
+      'deletion_completed',
+      user.id,
+      true
+    );
+
     BusinessLogger.logUserAction('data_deletion_completed', user.id, {
       deletedItems: deletionResult.deletedItems,
       clientIP,
       userAgent,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     });
 
     logger.info('User data deletion completed', {
       userId: user.id,
       deletedItems: deletionResult.deletedItems,
       clientIP,
-      userAgent
+      userAgent,
     });
 
-    return NextResponse.json({
-      success: true,
-      message: 'User data has been successfully deleted',
-      deletedItems: deletionResult.deletedItems,
-    }, {
-      status: 200,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'User data has been successfully deleted',
+        deletedItems: deletionResult.deletedItems,
+      },
+      {
+        status: 200,
+      }
+    );
   }
 
   throw new ValidationError('Invalid action');
 }
 
 // Apply middleware with very strict rate limiting for data deletion
-const handler = withErrorHandler(withAuth(
-  withRateLimit({
-    windowMs: 24 * 60 * 60 * 1000, // 24 hours
-    maxRequests: 5, // Only 5 deletion requests per day
-    message: 'Too many deletion requests. Please try again tomorrow.',
-  })(handleDataDeletion)
-));
+const handler = withErrorHandler(
+  withAuth(
+    withRateLimit({
+      windowMs: 24 * 60 * 60 * 1000, // 24 hours
+      maxRequests: 5, // Only 5 deletion requests per day
+      message: 'Too many deletion requests. Please try again tomorrow.',
+    })(handleDataDeletion)
+  )
+);
 
 export { handler as POST };

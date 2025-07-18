@@ -51,7 +51,7 @@ export function LazyList<T>({
 
   useEffect(() => {
     const currentElement = loadingElementRef.current;
-    
+
     if (!currentElement || !hasMore) return;
 
     observerRef.current = new IntersectionObserver(
@@ -117,11 +117,9 @@ export function LazyList<T>({
   return (
     <div className={className}>
       {items.map((item, index) => (
-        <div key={index}>
-          {renderItem(item, index)}
-        </div>
+        <div key={index}>{renderItem(item, index)}</div>
       ))}
-      
+
       {hasMore && (
         <div ref={loadingElementRef} className="h-4">
           {isLoadingMore && (loadingComponent || defaultLoadingComponent)}

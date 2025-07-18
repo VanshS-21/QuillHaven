@@ -44,9 +44,12 @@ class GracefulDegradationManager {
     });
   }
 
-  public setServiceConfig(serviceName: string, config: DegradationConfig): void {
+  public setServiceConfig(
+    serviceName: string,
+    config: DegradationConfig
+  ): void {
     this.configs.set(serviceName, config);
-    
+
     // Initialize service status
     if (!this.serviceStatuses.has(serviceName)) {
       this.serviceStatuses.set(serviceName, {
@@ -65,7 +68,11 @@ class GracefulDegradationManager {
     }
 
     // Check if we should retry the service
-    if (!status.isAvailable && status.nextRetryAt && new Date() >= status.nextRetryAt) {
+    if (
+      !status.isAvailable &&
+      status.nextRetryAt &&
+      new Date() >= status.nextRetryAt
+    ) {
       logger.info('Service retry time reached', { serviceName });
       return true; // Allow retry
     }
@@ -93,14 +100,14 @@ class GracefulDegradationManager {
       }
 
       const result = await operation();
-      
+
       // Success - reset failure count
       if (status.consecutiveFailures > 0) {
-        logger.info('Service recovered', { 
-          serviceName, 
-          previousFailures: status.consecutiveFailures 
+        logger.info('Service recovered', {
+          serviceName,
+          previousFailures: status.consecutiveFailures,
         });
-        
+
         status.consecutiveFailures = 0;
         status.isAvailable = true;
         status.nextRetryAt = undefined;
@@ -135,12 +142,17 @@ class GracefulDegradationManager {
     // Check if we should mark service as unavailable
     if (status.consecutiveFailures >= config.maxFailures) {
       status.isAvailable = false;
-      
+
       // Calculate exponential backoff delay
       const baseDelay = config.retryDelayMs;
-      const exponentialDelay = baseDelay * Math.pow(2, Math.min(status.consecutiveFailures - config.maxFailures, 8));
+      const exponentialDelay =
+        baseDelay *
+        Math.pow(
+          2,
+          Math.min(status.consecutiveFailures - config.maxFailures, 8)
+        );
       const delay = Math.min(exponentialDelay, config.maxRetryDelayMs);
-      
+
       status.nextRetryAt = new Date(Date.now() + delay);
 
       logger.error('Service marked as unavailable', {
@@ -163,7 +175,10 @@ class GracefulDegradationManager {
       } catch (fallbackError) {
         logger.error('Fallback operation also failed', {
           serviceName,
-          fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Unknown error',
+          fallbackError:
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : 'Unknown error',
         });
       }
     }
@@ -194,7 +209,7 @@ class GracefulDegradationManager {
       // Perform health check based on service type
       try {
         await this.performHealthCheck(serviceName);
-        
+
         // Health check passed, mark as available
         status.isAvailable = true;
         status.consecutiveFailures = 0;
@@ -202,7 +217,7 @@ class GracefulDegradationManager {
         this.serviceStatuses.set(serviceName, status);
 
         logger.info('Service health check passed', { serviceName });
-        
+
         // Stop monitoring
         clearInterval(interval);
         this.healthCheckIntervals.delete(serviceName);
@@ -229,18 +244,23 @@ class GracefulDegradationManager {
         await this.checkEmailHealth();
         break;
       default:
-        throw new Error(`No health check implemented for service: ${serviceName}`);
+        throw new Error(
+          `No health check implemented for service: ${serviceName}`
+        );
     }
   }
 
   private async checkGeminiHealth(): Promise<void> {
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models', {
-      method: 'GET',
-      headers: {
-        'x-goog-api-key': process.env.GEMINI_API_KEY || '',
-      },
-      signal: AbortSignal.timeout(5000), // 5 second timeout
-    });
+    const response = await fetch(
+      'https://generativelanguage.googleapis.com/v1beta/models',
+      {
+        method: 'GET',
+        headers: {
+          'x-goog-api-key': process.env.GEMINI_API_KEY || '',
+        },
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+      }
+    );
 
     if (!response.ok) {
       throw new Error(`Gemini health check failed: ${response.status}`);
@@ -311,7 +331,11 @@ export async function withGeminiDegradation<T>(
   operation: () => Promise<T>,
   fallback?: () => Promise<T>
 ): Promise<T> {
-  return gracefulDegradation.recordServiceCall('gemini-ai', operation, fallback);
+  return gracefulDegradation.recordServiceCall(
+    'gemini-ai',
+    operation,
+    fallback
+  );
 }
 
 export async function withRedisDegradation<T>(

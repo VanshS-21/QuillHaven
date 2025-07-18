@@ -1,11 +1,12 @@
 import { cacheService, CacheKeys } from '@/services/cacheService';
 import { performanceMonitor } from '@/lib/performance';
-import { 
-  parsePaginationParams, 
+import {
+  parsePaginationParams,
   createPaginationResponse,
-  createCursorPaginationResponse 
+  createCursorPaginationResponse,
 } from '@/utils/pagination';
 import { CACHE_CONFIG, PERFORMANCE_CONFIG } from '@/lib/config/performance';
+import redis from '@/lib/redis';
 
 // Mock Redis for testing
 jest.mock('@/lib/redis', () => ({
@@ -28,6 +29,9 @@ jest.mock('@/lib/redis', () => ({
   },
 }));
 
+// Type the mocked Redis client
+const mockedRedis = redis as jest.Mocked<typeof redis>;
+
 describe('Performance Optimization', () => {
   describe('Cache Service', () => {
     beforeEach(() => {
@@ -39,11 +43,10 @@ describe('Performance Optimization', () => {
       const key = 'test:project:1';
 
       await cacheService.set(key, testData, { ttl: 300 });
-      
+
       // Mock successful get
-      const redis = require('@/lib/redis').default;
-      redis.get.mockResolvedValueOnce(JSON.stringify(testData));
-      
+      mockedRedis.get.mockResolvedValueOnce(JSON.stringify(testData));
+
       const result = await cacheService.get(key);
       expect(result).toEqual(testData);
     });
@@ -56,7 +59,7 @@ describe('Performance Optimization', () => {
     it('should generate correct cache keys', () => {
       const userId = 'user123';
       const projectId = 'project456';
-      
+
       expect(CacheKeys.user(userId)).toBe('user:user123');
       expect(CacheKeys.project(projectId)).toBe('project:project456');
       expect(CacheKeys.userProjects(userId)).toBe('user:user123:projects');
@@ -65,16 +68,15 @@ describe('Performance Optimization', () => {
     it('should implement getOrSet pattern', async () => {
       const key = 'test:getOrSet';
       const fetchFunction = jest.fn().mockResolvedValue({ data: 'fetched' });
-      
+
       // First call should execute fetch function
       const result1 = await cacheService.getOrSet(key, fetchFunction);
       expect(fetchFunction).toHaveBeenCalledTimes(1);
       expect(result1).toEqual({ data: 'fetched' });
-      
+
       // Mock cache hit for second call
-      const redis = require('@/lib/redis').default;
-      redis.get.mockResolvedValueOnce(JSON.stringify({ data: 'cached' }));
-      
+      mockedRedis.get.mockResolvedValueOnce(JSON.stringify({ data: 'cached' }));
+
       const result2 = await cacheService.getOrSet(key, fetchFunction);
       expect(fetchFunction).toHaveBeenCalledTimes(1); // Should not be called again
       expect(result2).toEqual({ data: 'cached' });
@@ -85,14 +87,14 @@ describe('Performance Optimization', () => {
     it('should track request timing', async () => {
       const route = '/api/test';
       const method = 'GET';
-      
+
       const endTiming = performanceMonitor.startTiming(route, method);
-      
+
       // Simulate some work
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
       await endTiming(200, 'user123', false);
-      
+
       const stats = performanceMonitor.getStats(60000); // Last minute
       expect(stats.totalRequests).toBeGreaterThan(0);
       expect(stats.averageResponseTime).toBeGreaterThan(0);
@@ -100,7 +102,7 @@ describe('Performance Optimization', () => {
 
     it('should calculate performance statistics correctly', () => {
       const stats = performanceMonitor.getStats();
-      
+
       expect(stats).toHaveProperty('totalRequests');
       expect(stats).toHaveProperty('averageResponseTime');
       expect(stats).toHaveProperty('cacheHitRate');
@@ -111,7 +113,7 @@ describe('Performance Optimization', () => {
 
     it('should track route-specific statistics', () => {
       const routeStats = performanceMonitor.getRouteStats('/api/projects');
-      
+
       expect(routeStats).toHaveProperty('totalRequests');
       expect(routeStats).toHaveProperty('averageResponseTime');
       expect(routeStats).toHaveProperty('p95ResponseTime');
@@ -171,8 +173,13 @@ describe('Performance Optimization', () => {
         { id: 1, createdAt: '2023-01-01' },
         { id: 2, createdAt: '2023-01-02' },
       ];
-      
-      const response = createCursorPaginationResponse(data, 10, 'createdAt', true);
+
+      const response = createCursorPaginationResponse(
+        data,
+        10,
+        'createdAt',
+        true
+      );
 
       expect(response.data).toEqual(data);
       expect(response.pagination.limit).toBe(10);
@@ -189,13 +196,15 @@ describe('Performance Optimization', () => {
     });
 
     it('should have valid performance configuration', () => {
-      expect(PERFORMANCE_CONFIG.DATABASE.CONNECTION_POOL_SIZE).toBeGreaterThan(0);
+      expect(PERFORMANCE_CONFIG.DATABASE.CONNECTION_POOL_SIZE).toBeGreaterThan(
+        0
+      );
       expect(PERFORMANCE_CONFIG.API.RESPONSE_TIMEOUT).toBeGreaterThan(0);
       expect(PERFORMANCE_CONFIG.RATE_LIMITING.MAX_REQUESTS).toBeGreaterThan(0);
     });
 
     it('should validate cache TTL values', () => {
-      Object.values(CACHE_CONFIG.TTL_BY_TYPE).forEach(ttl => {
+      Object.values(CACHE_CONFIG.TTL_BY_TYPE).forEach((ttl) => {
         expect(ttl).toBeGreaterThan(0);
         expect(ttl).toBeLessThanOrEqual(86400); // Max 24 hours
       });
@@ -204,35 +213,39 @@ describe('Performance Optimization', () => {
 
   describe('Error Handling', () => {
     it('should handle cache errors gracefully', async () => {
-      const redis = require('@/lib/redis').default;
-      redis.get.mockRejectedValueOnce(new Error('Redis connection failed'));
+      mockedRedis.get.mockRejectedValueOnce(
+        new Error('Redis connection failed')
+      );
 
       const result = await cacheService.get('test:key');
       expect(result).toBeNull(); // Should return null on error
     });
 
     it('should handle cache set errors gracefully', async () => {
-      const redis = require('@/lib/redis').default;
-      redis.setex.mockRejectedValueOnce(new Error('Redis connection failed'));
+      mockedRedis.setex.mockRejectedValueOnce(
+        new Error('Redis connection failed')
+      );
 
       // Should not throw error
-      await expect(cacheService.set('test:key', { data: 'test' })).resolves.toBeUndefined();
+      await expect(
+        cacheService.set('test:key', { data: 'test' })
+      ).resolves.toBeUndefined();
     });
   });
 
   describe('Performance Benchmarks', () => {
     it('should complete cache operations within acceptable time', async () => {
       const startTime = performance.now();
-      
+
       await cacheService.set('benchmark:key', { large: 'data'.repeat(1000) });
       await cacheService.get('benchmark:key');
-      
+
       const duration = performance.now() - startTime;
       expect(duration).toBeLessThan(100); // Should complete within 100ms
     });
 
     it('should handle concurrent cache operations', async () => {
-      const operations = Array.from({ length: 10 }, (_, i) => 
+      const operations = Array.from({ length: 10 }, (_, i) =>
         cacheService.set(`concurrent:${i}`, { data: i })
       );
 

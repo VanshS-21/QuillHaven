@@ -6,7 +6,13 @@ import {
 } from '@/lib/middleware';
 import { getChapterVersions } from '@/services/chapterService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, AuthenticationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  NotFoundError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for version listing
@@ -41,7 +47,7 @@ async function handleGet(
 
   // Parse and validate query parameters
   const queryParams = Object.fromEntries(searchParams.entries());
-  
+
   let validatedParams;
   try {
     validatedParams = listVersionsSchema.parse(queryParams);
@@ -57,7 +63,11 @@ async function handleGet(
     'chapter_versions_retrieval',
     async () => {
       try {
-        return await getChapterVersions(chapterId, user.id, validatedParams.limit);
+        return await getChapterVersions(
+          chapterId,
+          user.id,
+          validatedParams.limit
+        );
       } catch (error) {
         if (error instanceof Error && error.message.includes('not found')) {
           throw new NotFoundError('Chapter not found or access denied');
@@ -73,14 +83,14 @@ async function handleGet(
     chapterId,
     versionsCount: versions.length,
     limit: validatedParams.limit,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Chapter versions retrieved', {
     userId: user.id,
     chapterId,
     versionsCount: versions.length,
-    limit: validatedParams.limit
+    limit: validatedParams.limit,
   });
 
   return NextResponse.json({
@@ -90,7 +100,9 @@ async function handleGet(
 }
 
 // Apply middleware and export handlers
-export const GET = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute
-})(withAuth(handleGet)));
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  })(withAuth(handleGet))
+);

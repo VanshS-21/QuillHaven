@@ -3,14 +3,28 @@ import { exportService } from '@/services/exportService';
 import { verifyAuth } from '@/lib/auth';
 import * as fs from 'fs';
 import * as path from 'path';
-import { withErrorHandler, AuthenticationError, ValidationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
-import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  ValidationError,
+  NotFoundError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
+import {
+  logger,
+  PerformanceLogger,
+  SecurityLogger,
+  BusinessLogger,
+} from '@/lib/logger';
 
 async function handleExportDownload(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const clientIP =
+    request.headers.get('x-forwarded-for') ||
+    request.headers.get('x-real-ip') ||
+    'unknown';
   const userAgent = request.headers.get('user-agent') || 'unknown';
 
   // Verify authentication
@@ -39,7 +53,10 @@ async function handleExportDownload(
     'export_download_validation',
     async () => {
       try {
-        return await exportService.getExportStatus(exportId, authResult.user!.id);
+        return await exportService.getExportStatus(
+          exportId,
+          authResult.user!.id
+        );
       } catch (error) {
         throw handleDatabaseError(error);
       }
@@ -76,7 +93,7 @@ async function handleExportDownload(
 
   // Log security event for file download
   SecurityLogger.logDataAccess('export', 'download', authResult.user.id, true);
-  
+
   BusinessLogger.logExport(
     authResult.user.id,
     exportJob.projectId,
@@ -93,7 +110,7 @@ async function handleExportDownload(
     filename: exportJob.filename,
     fileSize: fileBuffer.length,
     clientIP,
-    userAgent
+    userAgent,
   });
 
   // Set appropriate headers

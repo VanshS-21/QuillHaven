@@ -6,7 +6,7 @@ import { withAuth } from '@/lib/middleware';
 async function GET() {
   try {
     const serviceStatuses = gracefulDegradation.getAllServiceStatuses();
-    
+
     logger.info('Service status check requested', {
       services: Object.keys(serviceStatuses),
     });
@@ -40,7 +40,7 @@ async function POST(req: Request) {
 
     if (action === 'force-available') {
       gracefulDegradation.forceServiceAvailable(serviceName);
-      
+
       logger.info('Service manually marked as available', {
         serviceName,
         action: 'force-available',
@@ -52,10 +52,7 @@ async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json(
-      { error: 'Invalid action' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
   } catch (error) {
     logger.error('Failed to update service status', {
       error: error instanceof Error ? error.message : 'Unknown error',

@@ -10,7 +10,13 @@ import {
   deleteProject,
 } from '@/services/projectService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  NotFoundError,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for project updates
@@ -129,8 +135,8 @@ async function handlePut(
         throw handleDatabaseError(error);
       }
     },
-    { 
-      userId: user.id, 
+    {
+      userId: user.id,
       projectId,
       fieldsUpdated: Object.keys(validatedData),
     }

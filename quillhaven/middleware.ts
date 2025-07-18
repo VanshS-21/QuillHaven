@@ -34,19 +34,19 @@ function getClientIP(request: NextRequest): string {
   const forwardedFor = request.headers.get('x-forwarded-for');
   const realIP = request.headers.get('x-real-ip');
   const cfConnectingIP = request.headers.get('cf-connecting-ip');
-  
+
   if (forwardedFor) {
     return forwardedFor.split(',')[0].trim();
   }
-  
+
   if (realIP) {
     return realIP;
   }
-  
+
   if (cfConnectingIP) {
     return cfConnectingIP;
   }
-  
+
   return 'unknown';
 }
 
@@ -90,25 +90,31 @@ function applyRateLimit(
     // Track violations
     const violationKey = `violations:${ip}`;
     const violations = rateLimitStore.get(violationKey);
-    
+
     if (!violations || now > violations.resetTime) {
-      rateLimitStore.set(violationKey, { count: 1, resetTime: now + SECURITY_CONFIG.suspicious.blockDuration });
+      rateLimitStore.set(violationKey, {
+        count: 1,
+        resetTime: now + SECURITY_CONFIG.suspicious.blockDuration,
+      });
     } else {
       violations.count++;
-      
+
       // Block IP if too many violations
       if (violations.count >= SECURITY_CONFIG.suspicious.maxViolations) {
         blockedIPs.add(ip);
-        setTimeout(() => blockedIPs.delete(ip), SECURITY_CONFIG.suspicious.blockDuration);
+        setTimeout(
+          () => blockedIPs.delete(ip),
+          SECURITY_CONFIG.suspicious.blockDuration
+        );
       }
     }
 
     return NextResponse.json(
-      { 
+      {
         error: 'Too many requests. Please try again later.',
         retryAfter: Math.ceil((entry.resetTime - now) / 1000),
       },
-      { 
+      {
         status: 429,
         headers: {
           'Retry-After': Math.ceil((entry.resetTime - now) / 1000).toString(),
@@ -132,18 +138,19 @@ function applyRateLimit(
 function validateHeaders(request: NextRequest): NextResponse | null {
   const userAgent = request.headers.get('user-agent');
   const contentType = request.headers.get('content-type');
-  
+
   // Block requests without user agent (likely bots)
   if (!userAgent && request.method !== 'OPTIONS') {
-    return NextResponse.json(
-      { error: 'Invalid request' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
   }
 
   // Validate content type for POST/PUT requests
   if (['POST', 'PUT', 'PATCH'].includes(request.method)) {
-    if (contentType && !contentType.includes('application/json') && !contentType.includes('multipart/form-data')) {
+    if (
+      contentType &&
+      !contentType.includes('application/json') &&
+      !contentType.includes('multipart/form-data')
+    ) {
       return NextResponse.json(
         { error: 'Invalid content type' },
         { status: 400 }
@@ -163,15 +170,15 @@ function validateHeaders(request: NextRequest): NextResponse | null {
   ];
 
   for (const [name, value] of request.headers.entries()) {
-    if (value && suspiciousPatterns.some(pattern => pattern.test(value))) {
+    if (value && suspiciousPatterns.some((pattern) => pattern.test(value))) {
       const ip = getClientIP(request);
       suspiciousIPs.add(ip);
-      setTimeout(() => suspiciousIPs.delete(ip), SECURITY_CONFIG.suspicious.blockDuration);
-      
-      return NextResponse.json(
-        { error: 'Invalid request' },
-        { status: 400 }
+      setTimeout(
+        () => suspiciousIPs.delete(ip),
+        SECURITY_CONFIG.suspicious.blockDuration
       );
+
+      return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
   }
 
@@ -185,21 +192,28 @@ function addSecurityHeaders(response: NextResponse): void {
   // Additional security headers not covered by next.config.ts
   response.headers.set('X-Powered-By', 'QuillHaven'); // Hide Next.js
   response.headers.set('Server', 'QuillHaven'); // Hide server info
-  
+
   // Add timestamp for debugging
   response.headers.set('X-Request-Time', new Date().toISOString());
-  
+
   // CORS headers for API routes
   if (response.url.includes('/api/')) {
     response.headers.set('Access-Control-Allow-Credentials', 'true');
-    response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-    
+    response.headers.set(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, OPTIONS'
+    );
+    response.headers.set(
+      'Access-Control-Allow-Headers',
+      'Content-Type, Authorization, X-Requested-With'
+    );
+
     // Only allow specific origins in production
-    const allowedOrigins = process.env.NODE_ENV === 'production' 
-      ? [process.env.APP_URL || 'https://quillhaven.com']
-      : ['http://localhost:3000', 'http://127.0.0.1:3000'];
-    
+    const allowedOrigins =
+      process.env.NODE_ENV === 'production'
+        ? [process.env.APP_URL || 'https://quillhaven.com']
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'];
+
     response.headers.set('Access-Control-Allow-Origin', allowedOrigins[0]);
   }
 }
@@ -223,10 +237,7 @@ export function middleware(request: NextRequest) {
 
   // Block known malicious IPs
   if (isBlocked(ip)) {
-    return NextResponse.json(
-      { error: 'Access denied' },
-      { status: 403 }
-    );
+    return NextResponse.json({ error: 'Access denied' }, { status: 403 });
   }
 
   // Validate request headers

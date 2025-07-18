@@ -1,6 +1,12 @@
 'use client';
 
-import React, { createContext, useContext, useReducer, useCallback, useEffect } from 'react';
+import React, {
+  createContext,
+  useContext,
+  useReducer,
+  useCallback,
+  useEffect,
+} from 'react';
 import { X, CheckCircle, AlertCircle, AlertTriangle, Info } from 'lucide-react';
 import { Button } from './button';
 
@@ -65,18 +71,38 @@ interface NotificationContextType {
   addNotification: (notification: Omit<Notification, 'id'>) => string;
   removeNotification: (id: string) => void;
   clearAll: () => void;
-  notifySuccess: (title: string, message?: string, options?: Partial<Notification>) => string;
-  notifyError: (title: string, message?: string, options?: Partial<Notification>) => string;
-  notifyWarning: (title: string, message?: string, options?: Partial<Notification>) => string;
-  notifyInfo: (title: string, message?: string, options?: Partial<Notification>) => string;
+  notifySuccess: (
+    title: string,
+    message?: string,
+    options?: Partial<Notification>
+  ) => string;
+  notifyError: (
+    title: string,
+    message?: string,
+    options?: Partial<Notification>
+  ) => string;
+  notifyWarning: (
+    title: string,
+    message?: string,
+    options?: Partial<Notification>
+  ) => string;
+  notifyInfo: (
+    title: string,
+    message?: string,
+    options?: Partial<Notification>
+  ) => string;
 }
 
-const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
+const NotificationContext = createContext<NotificationContextType | undefined>(
+  undefined
+);
 
 export const useNotifications = () => {
   const context = useContext(NotificationContext);
   if (!context) {
-    throw new Error('useNotifications must be used within a NotificationProvider');
+    throw new Error(
+      'useNotifications must be used within a NotificationProvider'
+    );
   }
   return context;
 };
@@ -110,7 +136,11 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
       }
 
       // Auto-remove notification after duration (unless persistent)
-      if (!newNotification.persistent && newNotification.duration && newNotification.duration > 0) {
+      if (
+        !newNotification.persistent &&
+        newNotification.duration &&
+        newNotification.duration > 0
+      ) {
         setTimeout(() => {
           dispatch({ type: 'REMOVE_NOTIFICATION', payload: id });
         }, newNotification.duration);
@@ -118,7 +148,7 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
       return id;
     },
-    [state.notifications.length, maxNotifications]
+    [state.notifications, maxNotifications]
   );
 
   const removeNotification = useCallback((id: string) => {
@@ -137,12 +167,12 @@ export const NotificationProvider: React.FC<NotificationProviderProps> = ({
 
   const notifyError = useCallback(
     (title: string, message?: string, options?: Partial<Notification>) =>
-      addNotification({ 
-        ...options, 
-        type: 'error', 
-        title, 
-        message, 
-        persistent: options?.persistent ?? true // Errors are persistent by default
+      addNotification({
+        ...options,
+        type: 'error',
+        title,
+        message,
+        persistent: options?.persistent ?? true, // Errors are persistent by default
       }),
     [addNotification]
   );
@@ -319,7 +349,7 @@ export const useErrorHandler = () => {
         const errorData = await response.json();
         const title = errorData.message || `HTTP ${response.status} Error`;
         const message = context ? `Error in ${context}` : errorData.error || '';
-        
+
         if (response.status >= 500) {
           notifyError(title, message);
         } else if (response.status >= 400) {
@@ -342,7 +372,7 @@ export const useErrorHandler = () => {
 if (typeof window !== 'undefined') {
   window.addEventListener('unhandledrejection', (event) => {
     console.error('Unhandled promise rejection:', event.reason);
-    
+
     // You could dispatch a notification here if the provider is available
     // This would require a global reference to the notification system
   });

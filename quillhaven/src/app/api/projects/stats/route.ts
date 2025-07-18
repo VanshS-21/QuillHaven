@@ -5,7 +5,11 @@ import {
   AuthenticatedRequest,
 } from '@/lib/middleware';
 import { getProjectStats } from '@/services/projectService';
-import { withErrorHandler, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 /**
@@ -37,16 +41,16 @@ async function handleGet(req: NextRequest) {
     statsData: {
       totalProjects: stats.totalProjects,
       totalChapters: 0, // totalChapters not available in stats
-      totalWords: stats.totalWordCount
+      totalWords: stats.totalWordCount,
     },
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Project stats retrieved', {
     userId: user.id,
     totalProjects: stats.totalProjects,
     totalChapters: 0, // totalChapters not available in stats
-    totalWords: stats.totalWordCount
+    totalWords: stats.totalWordCount,
   });
 
   return NextResponse.json({
@@ -56,7 +60,9 @@ async function handleGet(req: NextRequest) {
 }
 
 // Apply middleware and export handler
-export const GET = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 60, // 60 requests per minute
-})(withAuth(handleGet)));
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 60, // 60 requests per minute
+  })(withAuth(handleGet))
+);

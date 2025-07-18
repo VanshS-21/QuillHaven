@@ -110,7 +110,7 @@ export function withApiCache(
           headers: {
             ...cached.headers,
             'X-Cache': 'HIT',
-            'ETag': cached.etag,
+            ETag: cached.etag,
             'Cache-Control': 'public, max-age=300, stale-while-revalidate=60',
           },
         });
@@ -137,8 +137,10 @@ export function withApiCache(
 
           // Copy relevant headers
           response.headers.forEach((value, key) => {
-            if (key.toLowerCase().startsWith('content-') || 
-                key.toLowerCase() === 'vary') {
+            if (
+              key.toLowerCase().startsWith('content-') ||
+              key.toLowerCase() === 'vary'
+            ) {
               headers[key] = value;
             }
           });
@@ -158,7 +160,10 @@ export function withApiCache(
           // Add cache headers to response
           response.headers.set('X-Cache', 'MISS');
           response.headers.set('ETag', etag);
-          response.headers.set('Cache-Control', 'public, max-age=300, stale-while-revalidate=60');
+          response.headers.set(
+            'Cache-Control',
+            'public, max-age=300, stale-while-revalidate=60'
+          );
         }
       }
 
@@ -225,12 +230,11 @@ export async function checkRateLimit(
 }> {
   const key = `rate-limit:${identifier}`;
   const now = Date.now();
-  const windowStart = now - windowMs;
 
   try {
     // Get current count
-    const current = await cacheService.get<number>(key) || 0;
-    
+    const current = (await cacheService.get<number>(key)) || 0;
+
     if (current >= limit) {
       return {
         allowed: false,
@@ -241,7 +245,7 @@ export async function checkRateLimit(
 
     // Increment counter
     const newCount = await cacheService.increment(key);
-    
+
     // Set expiration if this is the first request in the window
     if (newCount === 1) {
       await cacheService.expire(key, Math.ceil(windowMs / 1000));

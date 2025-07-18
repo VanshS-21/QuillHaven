@@ -86,7 +86,7 @@ export async function getProject(
   userId: string
 ): Promise<ProjectWithDetails | null> {
   const cacheKey = `${CacheKeys.project(projectId)}:user:${userId}`;
-  
+
   return cacheService.getOrSet(
     cacheKey,
     async () => {
@@ -400,7 +400,7 @@ export async function getProjectStats(userId: string): Promise<{
   recentActivity: Project[];
 }> {
   const cacheKey = `user:${userId}:stats`;
-  
+
   return cacheService.getOrSet(
     cacheKey,
     async () => {

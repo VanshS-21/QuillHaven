@@ -6,7 +6,12 @@ import {
 } from '@/lib/middleware';
 import { prisma } from '@/lib/prisma';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for chapter search
@@ -39,7 +44,7 @@ async function handleGet(req: NextRequest) {
 
   // Parse and validate query parameters
   const queryParams = Object.fromEntries(searchParams.entries());
-  
+
   let validatedParams;
   try {
     validatedParams = searchChaptersSchema.parse(queryParams);
@@ -103,20 +108,20 @@ async function handleGet(req: NextRequest) {
                 },
               },
             },
-          })
+          }),
         ]);
         return [totalCount, chapterResults];
       } catch (error) {
         throw handleDatabaseError(error);
       }
     },
-    { 
-      userId: user.id, 
-      query, 
-      projectId, 
-      status, 
-      page, 
-      limit 
+    {
+      userId: user.id,
+      query,
+      projectId,
+      status,
+      page,
+      limit,
     }
   );
 
@@ -131,7 +136,7 @@ async function handleGet(req: NextRequest) {
     resultsCount: chapters.length,
     totalResults: total,
     page,
-    limit
+    limit,
   });
 
   logger.info('Chapter search completed', {
@@ -143,7 +148,7 @@ async function handleGet(req: NextRequest) {
     totalResults: total,
     page,
     limit,
-    duration: Date.now() - Date.now()
+    duration: Date.now() - Date.now(),
   });
 
   return NextResponse.json({
@@ -164,7 +169,9 @@ async function handleGet(req: NextRequest) {
 }
 
 // Apply middleware and export handlers
-export const GET = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 60, // 60 search requests per minute
-})(withAuth(handleGet)));
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 60, // 60 search requests per minute
+  })(withAuth(handleGet))
+);

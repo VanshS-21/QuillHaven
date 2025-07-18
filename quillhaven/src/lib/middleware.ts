@@ -121,16 +121,18 @@ export function withRateLimit(config: RateLimitConfig) {
     return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
       try {
         // Get client identifier
-        const clientId = config.keyGenerator 
+        const clientId = config.keyGenerator
           ? config.keyGenerator(req)
           : getClientIdentifier(req);
-        
+
         const now = Date.now();
 
         // Check if IP is flagged as suspicious
         if (suspiciousIPs.has(clientId)) {
           return NextResponse.json(
-            { error: 'Access temporarily restricted due to suspicious activity' },
+            {
+              error: 'Access temporarily restricted due to suspicious activity',
+            },
             { status: 429 }
           );
         }
@@ -152,7 +154,7 @@ export function withRateLimit(config: RateLimitConfig) {
         // Check if limit exceeded
         if (rateLimitEntry.count >= config.maxRequests) {
           rateLimitEntry.violations++;
-          
+
           // Flag IP as suspicious after multiple violations
           if (rateLimitEntry.violations >= 3) {
             suspiciousIPs.add(clientId);
@@ -167,7 +169,8 @@ export function withRateLimit(config: RateLimitConfig) {
 
           return NextResponse.json(
             {
-              error: config.message || 'Too many requests. Please try again later.',
+              error:
+                config.message || 'Too many requests. Please try again later.',
               retryAfter: Math.ceil((rateLimitEntry.resetTime - now) / 1000),
             },
             {
@@ -231,25 +234,27 @@ function getClientIdentifier(req: NextRequest): string {
   const forwardedFor = req.headers.get('x-forwarded-for');
   const realIP = req.headers.get('x-real-ip');
   const cfConnectingIP = req.headers.get('cf-connecting-ip'); // Cloudflare
-  
+
   if (forwardedFor) {
     // X-Forwarded-For can contain multiple IPs, get the first one
     return forwardedFor.split(',')[0].trim();
   }
-  
+
   if (realIP) {
     return realIP;
   }
-  
+
   if (cfConnectingIP) {
     return cfConnectingIP;
   }
-  
+
   // Fallback to a combination of headers for identification
   const userAgent = req.headers.get('user-agent') || '';
   const acceptLanguage = req.headers.get('accept-language') || '';
-  
-  return `unknown-${Buffer.from(userAgent + acceptLanguage).toString('base64').slice(0, 16)}`;
+
+  return `unknown-${Buffer.from(userAgent + acceptLanguage)
+    .toString('base64')
+    .slice(0, 16)}`;
 }
 
 /**
@@ -264,7 +269,7 @@ export function withTieredRateLimit(configs: {
     return async (req: NextRequest, ...args: T): Promise<NextResponse> => {
       // Determine which rate limit config to use based on user or endpoint
       let configKey = 'default';
-      
+
       // Check if user is authenticated and has a subscription tier
       const authHeader = req.headers.get('authorization');
       if (authHeader) {
@@ -272,12 +277,12 @@ export function withTieredRateLimit(configs: {
         // For now, we'll use a simple approach
         configKey = 'authenticated';
       }
-      
+
       const config = configs[configKey] || configs['default'];
       if (!config) {
         return handler(req, ...args);
       }
-      
+
       return withRateLimit(config)(handler)(req, ...args);
     };
   };

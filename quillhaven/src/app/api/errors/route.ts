@@ -27,9 +27,10 @@ async function POST(req: NextRequest) {
     }
 
     // Get client information
-    const clientIP = req.headers.get('x-forwarded-for') || 
-                    req.headers.get('x-real-ip') || 
-                    'unknown';
+    const clientIP =
+      req.headers.get('x-forwarded-for') ||
+      req.headers.get('x-real-ip') ||
+      'unknown';
 
     // Log the client-side error
     logger.error('Client-side error reported', {
@@ -53,10 +54,10 @@ async function POST(req: NextRequest) {
     // 4. Rate limit error reports per client
 
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         message: 'Error report received',
-        errorId: errorReport.errorId 
+        errorId: errorReport.errorId,
       },
       { status: 200 }
     );

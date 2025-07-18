@@ -6,7 +6,13 @@ import {
 } from '@/lib/middleware';
 import { createChapter, listChapters } from '@/services/chapterService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, AuthenticationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  NotFoundError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schemas
@@ -55,7 +61,7 @@ async function handleGet(
 
   // Parse and validate query parameters
   const queryParams = Object.fromEntries(searchParams.entries());
-  
+
   let validatedParams;
   try {
     validatedParams = listChaptersSchema.parse(queryParams);
@@ -88,14 +94,14 @@ async function handleGet(
     chaptersCount: result.chapters?.length || 0,
     totalChapters: result.pagination?.total || 0,
     filters: validatedParams,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Project chapters listed', {
     userId: user.id,
     projectId,
     chaptersCount: result.chapters?.length || 0,
-    totalChapters: result.pagination?.total || 0
+    totalChapters: result.pagination?.total || 0,
   });
 
   return NextResponse.json({
@@ -165,7 +171,7 @@ async function handlePost(
     title: chapter.title,
     status: chapter.status,
     wordCount: chapter.wordCount || 0,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
   });
 
   logger.info('Chapter created successfully', {
@@ -173,7 +179,7 @@ async function handlePost(
     projectId,
     chapterId: chapter.id,
     title: chapter.title,
-    status: chapter.status
+    status: chapter.status,
   });
 
   return NextResponse.json(
@@ -187,12 +193,16 @@ async function handlePost(
 }
 
 // Apply middleware and export handlers
-export const GET = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute
-})(withAuth(handleGet)));
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  })(withAuth(handleGet))
+);
 
-export const POST = withErrorHandler(withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 20, // 20 chapter creations per minute
-})(withAuth(handlePost)));
+export const POST = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 20, // 20 chapter creations per minute
+  })(withAuth(handlePost))
+);

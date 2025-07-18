@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { exportService } from '@/services/exportService';
-import { verifyAuth } from '@/lib/auth';
+import {
+  withAuth,
+  withRateLimit,
+  AuthenticatedRequest,
+} from '@/lib/middleware';
 import { ExportRequest } from '@/types/export';
 import { z } from 'zod';
 import { initializeServices } from '@/lib/startup';
-import { withErrorHandler, ValidationError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  AuthenticationError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Initialize services on first API call
@@ -34,14 +43,26 @@ async function handleExportCreation(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  // Verify authentication
-  const authResult = await verifyAuth(request);
-  if (!authResult.success || !authResult.user) {
+  const user = (request as AuthenticatedRequest).user;
+  const { id: projectId } = await params;
+
+  // Check if user is authenticated
+  if (!user) {
     throw new AuthenticationError();
   }
 
-  const { id: projectId } = await params;
-  const body = await request.json();
+  // Validate project ID format
+  if (!projectId || typeof projectId !== 'string') {
+    throw new ValidationError('Invalid project ID');
+  }
+
+  // Parse and validate request body
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    throw new ValidationError('Invalid request body');
+  }
 
   // Validate request body
   let validationResult;
@@ -60,7 +81,7 @@ async function handleExportCreation(
   };
 
   logger.info('Export requested', {
-    userId: authResult.user.id,
+    userId: user.id,
     projectId,
     format: exportRequest.format,
     chapterCount: exportRequest.chapterIds?.length || 'all',
@@ -72,13 +93,13 @@ async function handleExportCreation(
     'create_export',
     async () => {
       try {
-        return await exportService.createExport(exportRequest, authResult.user!.id);
+        return await exportService.createExport(exportRequest, user.id);
       } catch (error) {
         throw handleDatabaseError(error);
       }
     },
     {
-      userId: authResult.user.id,
+      userId: user.id,
       projectId,
       format: exportRequest.format,
     }
@@ -90,7 +111,7 @@ async function handleExportCreation(
 
   // Log business event
   BusinessLogger.logExport(
-    authResult.user.id,
+    user.id,
     projectId,
     exportRequest.format,
     exportRequest.chapterIds?.length || 0,
@@ -99,7 +120,7 @@ async function handleExportCreation(
   );
 
   logger.info('Export created successfully', {
-    userId: authResult.user.id,
+    userId: user.id,
     projectId,
     exportId: result.exportId,
     format: exportRequest.format,
@@ -111,4 +132,10 @@ async function handleExportCreation(
   });
 }
 
-export const POST = withErrorHandler(handleExportCreation);
+// Apply middleware with error handling and rate limiting
+export const POST = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 10, // 10 export requests per minute (exports are resource intensive)
+  })(withAuth(handleExportCreation))
+);

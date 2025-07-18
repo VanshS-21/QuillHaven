@@ -5,6 +5,7 @@ This document describes the comprehensive error handling and monitoring system i
 ## Overview
 
 The error handling system provides:
+
 - Global error handling middleware for API routes
 - Frontend error boundaries and user notifications
 - Structured logging with performance monitoring
@@ -47,7 +48,7 @@ async function handleRequest(req: NextRequest): Promise<NextResponse> {
   if (invalidInput) {
     throw new ValidationError('Invalid input data');
   }
-  
+
   return NextResponse.json({ success: true });
 }
 
@@ -127,15 +128,12 @@ import { useErrorHandling } from '@/hooks/useErrorHandling';
 
 const { withApiErrorHandling } = useErrorHandling();
 
-const saveChapter = withApiErrorHandling(
-  async (chapterData) => {
-    return fetch('/api/chapters', {
-      method: 'POST',
-      body: JSON.stringify(chapterData),
-    });
-  },
-  'saving chapter'
-);
+const saveChapter = withApiErrorHandling(async (chapterData) => {
+  return fetch('/api/chapters', {
+    method: 'POST',
+    body: JSON.stringify(chapterData),
+  });
+}, 'saving chapter');
 ```
 
 ## Logging System
@@ -159,7 +157,11 @@ await PerformanceLogger.measureAsync('database_query', async () => {
 
 // Security logging
 SecurityLogger.logAuthAttempt(true, email, clientIP);
-SecurityLogger.logSuspiciousActivity('multiple_failed_logins', { attempts: 5 }, clientIP);
+SecurityLogger.logSuspiciousActivity(
+  'multiple_failed_logins',
+  { attempts: 5 },
+  clientIP
+);
 ```
 
 ### Log Levels
@@ -201,6 +203,7 @@ GET /api/health/detailed
 ```
 
 Requires authentication. Returns detailed system information including:
+
 - System metrics (memory, CPU)
 - Database statistics
 - Redis information
@@ -256,6 +259,7 @@ POST /api/errors
 ```
 
 Error reports include:
+
 - Error message and stack trace
 - Component stack (React)
 - User agent and URL
@@ -264,6 +268,7 @@ Error reports include:
 ### Error Tracking
 
 In production, consider integrating with external error tracking services:
+
 - Sentry
 - Bugsnag
 - LogRocket
@@ -326,6 +331,7 @@ npm test -- src/__tests__/errorHandling.test.ts
 ```
 
 Test coverage includes:
+
 - Error class creation
 - Middleware error handling
 - Database error conversion
@@ -351,6 +357,7 @@ LOG_LEVEL=DEBUG npm run dev
 ```
 
 This will show detailed information about:
+
 - Request/response cycles
 - Error handling flow
 - Service health checks

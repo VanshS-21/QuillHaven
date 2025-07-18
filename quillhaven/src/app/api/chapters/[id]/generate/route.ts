@@ -6,7 +6,14 @@ import {
 } from '@/lib/middleware';
 import { generateChapter } from '@/services/chapterService';
 import { z } from 'zod';
-import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, ExternalServiceError, handleDatabaseError } from '@/lib/errorHandler';
+import {
+  withErrorHandler,
+  ValidationError,
+  NotFoundError,
+  AuthenticationError,
+  ExternalServiceError,
+  handleDatabaseError,
+} from '@/lib/errorHandler';
 import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 import { withGeminiDegradation } from '@/lib/gracefulDegradation';
 
@@ -90,13 +97,21 @@ async function handlePost(
                 throw new NotFoundError('Chapter not found or access denied');
               }
               if (error.message.includes('rate limit')) {
-                throw new ExternalServiceError('Gemini AI', 'Rate limit exceeded. Please try again later.');
+                throw new ExternalServiceError(
+                  'Gemini AI',
+                  'Rate limit exceeded. Please try again later.'
+                );
               }
               if (error.message.includes('quota')) {
-                throw new ExternalServiceError('Gemini AI', 'Quota exceeded. Please check your subscription.');
+                throw new ExternalServiceError(
+                  'Gemini AI',
+                  'Quota exceeded. Please check your subscription.'
+                );
               }
               if (error.message.includes('content policy')) {
-                throw new ValidationError('Content was filtered due to safety policies. Please modify your prompt.');
+                throw new ValidationError(
+                  'Content was filtered due to safety policies. Please modify your prompt.'
+                );
               }
             }
             throw handleDatabaseError(error);
@@ -112,7 +127,10 @@ async function handlePost(
     },
     async () => {
       // Fallback: Return a message indicating AI is unavailable
-      throw new ExternalServiceError('Gemini AI', 'AI generation service is temporarily unavailable. Please try again later.');
+      throw new ExternalServiceError(
+        'Gemini AI',
+        'AI generation service is temporarily unavailable. Please try again later.'
+      );
     }
   );
 
