@@ -25,7 +25,7 @@ export class PerformanceMonitor {
   /**
    * Start timing a request
    */
-  startTiming(route: string, method: string): () => Promise<void> {
+  startTiming(route: string, method: string): (statusCode?: number, userId?: string, cacheHit?: boolean) => Promise<void> {
     const startTime = performance.now();
     
     return async (statusCode: number = 200, userId?: string, cacheHit?: boolean) => {

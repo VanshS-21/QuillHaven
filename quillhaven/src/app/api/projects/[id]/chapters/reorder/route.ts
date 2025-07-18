@@ -6,6 +6,8 @@ import {
 } from '@/lib/middleware';
 import { reorderChapters } from '@/services/chapterService';
 import { z } from 'zod';
+import { withErrorHandler, ValidationError, AuthenticationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
+import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for chapter reordering
 const reorderChaptersSchema = z.object({
@@ -27,127 +29,102 @@ async function handlePut(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: projectId } = await params;
-    const body = await req.json();
+  const user = (req as AuthenticatedRequest).user;
+  const { id: projectId } = await params;
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate project ID format
-    if (!projectId || typeof projectId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
-    const validatedData = reorderChaptersSchema.parse(body);
-
-    // Validate that orders are sequential and start from 1
-    const orders = validatedData.chapters
-      .map((c) => c.order)
-      .sort((a, b) => a - b);
-    const expectedOrders = Array.from(
-      { length: orders.length },
-      (_, i) => i + 1
-    );
-
-    if (!orders.every((order, index) => order === expectedOrders[index])) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Chapter orders must be sequential starting from 1',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Check for duplicate chapter IDs
-    const chapterIds = validatedData.chapters.map((c) => c.id);
-    const uniqueIds = new Set(chapterIds);
-    if (uniqueIds.size !== chapterIds.length) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Duplicate chapter IDs are not allowed',
-        },
-        { status: 400 }
-      );
-    }
-
-    const updatedChapters = await reorderChapters(
-      projectId,
-      user.id,
-      validatedData.chapters
-    );
-
-    return NextResponse.json({
-      success: true,
-      data: updatedChapters,
-      message: 'Chapters reordered successfully',
-    });
-  } catch (error) {
-    console.error('Error reordering chapters:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid reorder data',
-          details: error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    if (error instanceof Error) {
-      if (error.message.includes('not found')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Project not found or access denied',
-          },
-          { status: 404 }
-        );
-      }
-
-      if (error.message.includes('do not belong')) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: 'Some chapters do not belong to this project',
-          },
-          { status: 400 }
-        );
-      }
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to reorder chapters',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate project ID format
+  if (!projectId || typeof projectId !== 'string') {
+    throw new ValidationError('Invalid project ID');
+  }
+
+  // Parse and validate request body
+  let body;
+  try {
+    body = await req.json();
+  } catch {
+    throw new ValidationError('Invalid request body');
+  }
+
+  let validatedData;
+  try {
+    validatedData = reorderChaptersSchema.parse(body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError('Invalid reorder data', error.issues);
+    }
+    throw error;
+  }
+
+  // Validate that orders are sequential and start from 1
+  const orders = validatedData.chapters
+    .map((c) => c.order)
+    .sort((a, b) => a - b);
+  const expectedOrders = Array.from(
+    { length: orders.length },
+    (_, i) => i + 1
+  );
+
+  if (!orders.every((order, index) => order === expectedOrders[index])) {
+    throw new ValidationError('Chapter orders must be sequential starting from 1');
+  }
+
+  // Check for duplicate chapter IDs
+  const chapterIds = validatedData.chapters.map((c) => c.id);
+  const uniqueIds = new Set(chapterIds);
+  if (uniqueIds.size !== chapterIds.length) {
+    throw new ValidationError('Duplicate chapter IDs are not allowed');
+  }
+
+  // Reorder chapters with performance monitoring
+  const updatedChapters = await PerformanceLogger.measureAsync(
+    'chapters_reorder',
+    async () => {
+      try {
+        return await reorderChapters(projectId, user.id, validatedData.chapters);
+      } catch (error) {
+        if (error instanceof Error) {
+          if (error.message.includes('not found')) {
+            throw new NotFoundError('Project not found or access denied');
+          }
+          if (error.message.includes('do not belong')) {
+            throw new ValidationError('Some chapters do not belong to this project');
+          }
+        }
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: user.id, projectId, chaptersCount: validatedData.chapters.length }
+  );
+
+  // Log business event
+  BusinessLogger.logUserAction('chapters_reordered', user.id, {
+    projectId,
+    chaptersCount: validatedData.chapters.length,
+    chapterIds: chapterIds,
+    timestamp: new Date().toISOString()
+  });
+
+  logger.info('Chapters reordered successfully', {
+    userId: user.id,
+    projectId,
+    chaptersCount: validatedData.chapters.length,
+    chapterIds: chapterIds
+  });
+
+  return NextResponse.json({
+    success: true,
+    data: updatedChapters,
+    message: 'Chapters reordered successfully',
+  });
 }
 
 // Apply middleware and export handlers
-export const PUT = withRateLimit({
+export const PUT = withErrorHandler(withRateLimit({
   windowMs: 60 * 1000, // 1 minute
   maxRequests: 30, // 30 reorder operations per minute
-})(withAuth(handlePut));
+})(withAuth(handlePut)));

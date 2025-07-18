@@ -10,6 +10,8 @@ import {
   deleteProject,
 } from '@/services/projectService';
 import { z } from 'zod';
+import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for project updates
 const updateProjectSchema = z.object({
@@ -39,58 +41,46 @@ async function handleGet(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: projectId } = await params;
+  const user = (req as AuthenticatedRequest).user;
+  const { id: projectId } = await params;
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate project ID format (basic check)
-    if (!projectId || typeof projectId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    const project = await getProject(projectId, user.id);
-
-    if (!project) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Project not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: project,
-    });
-  } catch (error) {
-    console.error('Error getting project:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get project',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate project ID format (basic check)
+  if (!projectId || typeof projectId !== 'string') {
+    throw new ValidationError('Invalid project ID');
+  }
+
+  const project = await PerformanceLogger.measureAsync(
+    'get_project',
+    async () => {
+      try {
+        return await getProject(projectId, user.id);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: user.id, projectId }
+  );
+
+  if (!project) {
+    throw new NotFoundError('Project not found or access denied');
+  }
+
+  logger.info('Project retrieved successfully', {
+    userId: user.id,
+    projectId,
+    projectTitle: project.title,
+    chapterCount: project.chapters?.length || 0,
+  });
+
+  return NextResponse.json({
+    success: true,
+    data: project,
+  });
 }
 
 /**
@@ -100,90 +90,75 @@ async function handlePut(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: projectId } = await params;
-    const body = await req.json();
+  const user = (req as AuthenticatedRequest).user;
+  const { id: projectId } = await params;
+  const body = await req.json();
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate project ID format
-    if (!projectId || typeof projectId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
-    const validatedData = updateProjectSchema.parse(body);
-
-    // Check if there's actually data to update
-    if (Object.keys(validatedData).length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No valid fields to update',
-        },
-        { status: 400 }
-      );
-    }
-
-    const updatedProject = await updateProject(
-      projectId,
-      user.id,
-      validatedData
-    );
-
-    if (!updatedProject) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Project not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: updatedProject,
-      message: 'Project updated successfully',
-    });
-  } catch (error) {
-    console.error('Error updating project:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project data',
-          details: error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update project',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate project ID format
+  if (!projectId || typeof projectId !== 'string') {
+    throw new ValidationError('Invalid project ID');
+  }
+
+  // Validate request body
+  let validatedData;
+  try {
+    validatedData = updateProjectSchema.parse(body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError('Invalid project data', error.issues);
+    }
+    throw error;
+  }
+
+  // Check if there's actually data to update
+  if (Object.keys(validatedData).length === 0) {
+    throw new ValidationError('No valid fields to update');
+  }
+
+  const updatedProject = await PerformanceLogger.measureAsync(
+    'update_project',
+    async () => {
+      try {
+        return await updateProject(projectId, user.id, validatedData);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { 
+      userId: user.id, 
+      projectId,
+      fieldsUpdated: Object.keys(validatedData),
+    }
+  );
+
+  if (!updatedProject) {
+    throw new NotFoundError('Project not found or access denied');
+  }
+
+  // Log business event
+  BusinessLogger.logUserAction('project_updated', user.id, {
+    projectId,
+    fieldsUpdated: Object.keys(validatedData),
+    newStatus: validatedData.status,
+  });
+
+  logger.info('Project updated successfully', {
+    userId: user.id,
+    projectId,
+    fieldsUpdated: Object.keys(validatedData),
+    projectTitle: updatedProject.title,
+  });
+
+  return NextResponse.json({
+    success: true,
+    data: updatedProject,
+    message: 'Project updated successfully',
+  });
 }
 
 /**
@@ -193,72 +168,69 @@ async function handleDelete(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: projectId } = await params;
+  const user = (req as AuthenticatedRequest).user;
+  const { id: projectId } = await params;
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate project ID format
-    if (!projectId || typeof projectId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid project ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    const deleted = await deleteProject(projectId, user.id);
-
-    if (!deleted) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Project not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Project deleted successfully',
-    });
-  } catch (error) {
-    console.error('Error deleting project:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to delete project',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate project ID format
+  if (!projectId || typeof projectId !== 'string') {
+    throw new ValidationError('Invalid project ID');
+  }
+
+  const deleted = await PerformanceLogger.measureAsync(
+    'delete_project',
+    async () => {
+      try {
+        return await deleteProject(projectId, user.id);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: user.id, projectId }
+  );
+
+  if (!deleted) {
+    throw new NotFoundError('Project not found or access denied');
+  }
+
+  // Log business event
+  BusinessLogger.logUserAction('project_deleted', user.id, {
+    projectId,
+  });
+
+  logger.info('Project deleted successfully', {
+    userId: user.id,
+    projectId,
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: 'Project deleted successfully',
+  });
 }
 
-// Apply middleware and export handlers
-export const GET = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute
-})(withAuth(handleGet));
+// Apply middleware with error handling and export handlers
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  })(withAuth(handleGet))
+);
 
-export const PUT = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 30, // 30 updates per minute
-})(withAuth(handlePut));
+export const PUT = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 30, // 30 updates per minute
+  })(withAuth(handlePut))
+);
 
-export const DELETE = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 10, // 10 deletions per minute
-})(withAuth(handleDelete));
+export const DELETE = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 10, // 10 deletions per minute
+  })(withAuth(handleDelete))
+);

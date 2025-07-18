@@ -3,95 +3,115 @@ import { exportService } from '@/services/exportService';
 import { verifyAuth } from '@/lib/auth';
 import * as fs from 'fs';
 import * as path from 'path';
+import { withErrorHandler, AuthenticationError, ValidationError, NotFoundError, handleDatabaseError } from '@/lib/errorHandler';
+import { logger, PerformanceLogger, SecurityLogger, BusinessLogger } from '@/lib/logger';
 
-export async function GET(
+async function handleExportDownload(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    // Verify authentication
-    const authResult = await verifyAuth(request);
-    if (!authResult.success || !authResult.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
+  const clientIP = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
+  const userAgent = request.headers.get('user-agent') || 'unknown';
 
-    const { id: exportId } = await params;
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get('token');
-    const expires = searchParams.get('expires');
-
-    // Validate download token and expiration
-    if (!token || !expires) {
-      return NextResponse.json(
-        { error: 'Invalid download link' },
-        { status: 400 }
-      );
-    }
-
-    const expirationTime = parseInt(expires);
-    if (Date.now() > expirationTime) {
-      return NextResponse.json(
-        { error: 'Download link has expired' },
-        { status: 410 }
-      );
-    }
-
-    // Get export status
-    const exportJob = await exportService.getExportStatus(
-      exportId,
-      authResult.user.id
-    );
-
-    if (!exportJob) {
-      return NextResponse.json({ error: 'Export not found' }, { status: 404 });
-    }
-
-    if (exportJob.status !== 'COMPLETED') {
-      return NextResponse.json(
-        { error: 'Export not ready for download' },
-        { status: 400 }
-      );
-    }
-
-    // Construct file path
-    const exportDir = path.join(process.cwd(), 'exports');
-    const filePath = path.join(
-      exportDir,
-      `${exportId}.${exportJob.format.toLowerCase()}`
-    );
-
-    // Check if file exists
-    if (!fs.existsSync(filePath)) {
-      return NextResponse.json(
-        { error: 'Export file not found' },
-        { status: 404 }
-      );
-    }
-
-    // Read file
-    const fileBuffer = fs.readFileSync(filePath);
-
-    // Set appropriate headers
-    const headers = new Headers();
-    headers.set('Content-Type', getContentType(exportJob.format));
-    headers.set(
-      'Content-Disposition',
-      `attachment; filename="${exportJob.filename}"`
-    );
-    headers.set('Content-Length', fileBuffer.length.toString());
-
-    return new NextResponse(fileBuffer, {
-      status: 200,
-      headers,
-    });
-  } catch (error) {
-    console.error('Export download error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+  // Verify authentication
+  const authResult = await verifyAuth(request);
+  if (!authResult.success || !authResult.user) {
+    throw new AuthenticationError();
   }
+
+  const { id: exportId } = await params;
+  const { searchParams } = new URL(request.url);
+  const token = searchParams.get('token');
+  const expires = searchParams.get('expires');
+
+  // Validate download token and expiration
+  if (!token || !expires) {
+    throw new ValidationError('Invalid download link');
+  }
+
+  const expirationTime = parseInt(expires);
+  if (isNaN(expirationTime) || Date.now() > expirationTime) {
+    throw new ValidationError('Download link has expired');
+  }
+
+  // Get export status with performance monitoring
+  const exportJob = await PerformanceLogger.measureAsync(
+    'export_download_validation',
+    async () => {
+      try {
+        return await exportService.getExportStatus(exportId, authResult.user!.id);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: authResult.user.id, exportId, clientIP }
+  );
+
+  if (!exportJob) {
+    throw new NotFoundError('Export not found or access denied');
+  }
+
+  if (exportJob.status !== 'COMPLETED') {
+    throw new ValidationError('Export not ready for download');
+  }
+
+  // Construct file path
+  const exportDir = path.join(process.cwd(), 'exports');
+  const filePath = path.join(
+    exportDir,
+    `${exportId}.${exportJob.format.toLowerCase()}`
+  );
+
+  // Check if file exists and read with performance monitoring
+  const fileBuffer = await PerformanceLogger.measureAsync(
+    'export_file_read',
+    async () => {
+      if (!fs.existsSync(filePath)) {
+        throw new NotFoundError('Export file not found');
+      }
+      return fs.readFileSync(filePath);
+    },
+    { exportId, filePath: filePath.substring(filePath.lastIndexOf('/') + 1) }
+  );
+
+  // Log security event for file download
+  SecurityLogger.logDataAccess('export', 'download', authResult.user.id, true);
+  
+  BusinessLogger.logExport(
+    authResult.user.id,
+    exportJob.projectId,
+    exportJob.format,
+    0, // chapterCount not available in ExportJob
+    0, // wordCount not available in ExportJob
+    true
+  );
+
+  logger.info('Export downloaded', {
+    userId: authResult.user.id,
+    exportId,
+    format: exportJob.format,
+    filename: exportJob.filename,
+    fileSize: fileBuffer.length,
+    clientIP,
+    userAgent
+  });
+
+  // Set appropriate headers
+  const headers = new Headers();
+  headers.set('Content-Type', getContentType(exportJob.format));
+  headers.set(
+    'Content-Disposition',
+    `attachment; filename="${exportJob.filename}"`
+  );
+  headers.set('Content-Length', fileBuffer.length.toString());
+
+  return new NextResponse(fileBuffer, {
+    status: 200,
+    headers,
+  });
 }
+
+export const GET = withErrorHandler(handleExportDownload);
 
 function getContentType(format: string): string {
   switch (format) {

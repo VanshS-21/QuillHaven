@@ -10,6 +10,8 @@ import {
   deleteChapter,
 } from '@/services/chapterService';
 import { z } from 'zod';
+import { withErrorHandler, ValidationError, NotFoundError, AuthenticationError, handleDatabaseError } from '@/lib/errorHandler';
+import { logger, PerformanceLogger, BusinessLogger } from '@/lib/logger';
 
 // Validation schema for chapter updates
 const updateChapterSchema = z.object({
@@ -29,58 +31,46 @@ async function handleGet(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: chapterId } = await params;
+  const user = (req as AuthenticatedRequest).user;
+  const { id: chapterId } = await params;
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate chapter ID format
-    if (!chapterId || typeof chapterId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid chapter ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    const chapter = await getChapter(chapterId, user.id);
-
-    if (!chapter) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Chapter not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: chapter,
-    });
-  } catch (error) {
-    console.error('Error getting chapter:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to get chapter',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate chapter ID format
+  if (!chapterId || typeof chapterId !== 'string') {
+    throw new ValidationError('Invalid chapter ID');
+  }
+
+  const chapter = await PerformanceLogger.measureAsync(
+    'get_chapter',
+    async () => {
+      try {
+        return await getChapter(chapterId, user.id);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: user.id, chapterId }
+  );
+
+  if (!chapter) {
+    throw new NotFoundError('Chapter not found or access denied');
+  }
+
+  logger.info('Chapter retrieved successfully', {
+    userId: user.id,
+    chapterId,
+    projectId: chapter.projectId,
+    chapterTitle: chapter.title,
+  });
+
+  return NextResponse.json({
+    success: true,
+    data: chapter,
+  });
 }
 
 /**
@@ -90,90 +80,77 @@ async function handlePut(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: chapterId } = await params;
-    const body = await req.json();
+  const user = (req as AuthenticatedRequest).user;
+  const { id: chapterId } = await params;
+  const body = await req.json();
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate chapter ID format
-    if (!chapterId || typeof chapterId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid chapter ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    // Validate request body
-    const validatedData = updateChapterSchema.parse(body);
-
-    // Check if there's actually data to update
-    if (Object.keys(validatedData).length === 0) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No valid fields to update',
-        },
-        { status: 400 }
-      );
-    }
-
-    const updatedChapter = await updateChapter(
-      chapterId,
-      user.id,
-      validatedData
-    );
-
-    if (!updatedChapter) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Chapter not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      data: updatedChapter,
-      message: 'Chapter updated successfully',
-    });
-  } catch (error) {
-    console.error('Error updating chapter:', error);
-
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid chapter data',
-          details: error.issues,
-        },
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to update chapter',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate chapter ID format
+  if (!chapterId || typeof chapterId !== 'string') {
+    throw new ValidationError('Invalid chapter ID');
+  }
+
+  // Validate request body
+  let validatedData;
+  try {
+    validatedData = updateChapterSchema.parse(body);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      throw new ValidationError('Invalid chapter data', error.issues);
+    }
+    throw error;
+  }
+
+  // Check if there's actually data to update
+  if (Object.keys(validatedData).length === 0) {
+    throw new ValidationError('No valid fields to update');
+  }
+
+  const updatedChapter = await PerformanceLogger.measureAsync(
+    'update_chapter',
+    async () => {
+      try {
+        return await updateChapter(chapterId, user.id, validatedData);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { 
+      userId: user.id, 
+      chapterId,
+      fieldsUpdated: Object.keys(validatedData),
+      contentLength: validatedData.content?.length || 0,
+    }
+  );
+
+  if (!updatedChapter) {
+    throw new NotFoundError('Chapter not found or access denied');
+  }
+
+  // Log business event
+  BusinessLogger.logUserAction('chapter_updated', user.id, {
+    chapterId,
+    projectId: updatedChapter.projectId,
+    fieldsUpdated: Object.keys(validatedData),
+    newStatus: validatedData.status,
+  });
+
+  logger.info('Chapter updated successfully', {
+    userId: user.id,
+    chapterId,
+    projectId: updatedChapter.projectId,
+    fieldsUpdated: Object.keys(validatedData),
+  });
+
+  return NextResponse.json({
+    success: true,
+    data: updatedChapter,
+    message: 'Chapter updated successfully',
+  });
 }
 
 /**
@@ -183,72 +160,69 @@ async function handleDelete(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  try {
-    const user = (req as AuthenticatedRequest).user;
-    const { id: chapterId } = await params;
+  const user = (req as AuthenticatedRequest).user;
+  const { id: chapterId } = await params;
 
-    // Check if user is authenticated
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Authentication required',
-        },
-        { status: 401 }
-      );
-    }
-
-    // Validate chapter ID format
-    if (!chapterId || typeof chapterId !== 'string') {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Invalid chapter ID',
-        },
-        { status: 400 }
-      );
-    }
-
-    const deleted = await deleteChapter(chapterId, user.id);
-
-    if (!deleted) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Chapter not found or access denied',
-        },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({
-      success: true,
-      message: 'Chapter deleted successfully',
-    });
-  } catch (error) {
-    console.error('Error deleting chapter:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to delete chapter',
-      },
-      { status: 500 }
-    );
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
   }
+
+  // Validate chapter ID format
+  if (!chapterId || typeof chapterId !== 'string') {
+    throw new ValidationError('Invalid chapter ID');
+  }
+
+  const deleted = await PerformanceLogger.measureAsync(
+    'delete_chapter',
+    async () => {
+      try {
+        return await deleteChapter(chapterId, user.id);
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    { userId: user.id, chapterId }
+  );
+
+  if (!deleted) {
+    throw new NotFoundError('Chapter not found or access denied');
+  }
+
+  // Log business event
+  BusinessLogger.logUserAction('chapter_deleted', user.id, {
+    chapterId,
+  });
+
+  logger.info('Chapter deleted successfully', {
+    userId: user.id,
+    chapterId,
+  });
+
+  return NextResponse.json({
+    success: true,
+    message: 'Chapter deleted successfully',
+  });
 }
 
-// Apply middleware and export handlers
-export const GET = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 100, // 100 requests per minute
-})(withAuth(handleGet));
+// Apply middleware with error handling and export handlers
+export const GET = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 100, // 100 requests per minute
+  })(withAuth(handleGet))
+);
 
-export const PUT = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 60, // 60 updates per minute (for auto-save)
-})(withAuth(handlePut));
+export const PUT = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 60, // 60 updates per minute (for auto-save)
+  })(withAuth(handlePut))
+);
 
-export const DELETE = withRateLimit({
-  windowMs: 60 * 1000, // 1 minute
-  maxRequests: 10, // 10 deletions per minute
-})(withAuth(handleDelete));
+export const DELETE = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 10, // 10 deletions per minute
+  })(withAuth(handleDelete))
+);

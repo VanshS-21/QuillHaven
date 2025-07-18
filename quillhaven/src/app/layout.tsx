@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { AuthProvider } from '@/components/auth/AuthContext';
+import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
+import { NotificationProvider } from '@/components/ui/NotificationSystem';
 import './globals.css';
 
 const geistSans = Geist({
@@ -29,7 +31,11 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>{children}</AuthProvider>
+        <ErrorBoundary showDetails={process.env.NODE_ENV === 'development'}>
+          <NotificationProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </NotificationProvider>
+        </ErrorBoundary>
       </body>
     </html>
   );

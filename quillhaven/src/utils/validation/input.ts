@@ -7,7 +7,7 @@ import DOMPurify from 'isomorphic-dompurify';
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
-  sanitizedData?: string;
+  sanitizedData?: any;
 }
 
 export interface ValidationOptions {

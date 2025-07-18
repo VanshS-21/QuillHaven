@@ -2,19 +2,17 @@
  * Data encryption and decryption utilities for sensitive user content
  */
 
-const crypto = require('crypto');
+import crypto from 'crypto';
 
 // Encryption configuration
-const ALGORITHM = 'aes-256-gcm';
 const KEY_LENGTH = 32; // 256 bits
 const IV_LENGTH = 16; // 128 bits
-const TAG_LENGTH = 16; // 128 bits
 const SALT_LENGTH = 32; // 256 bits
 
 // Get encryption key from environment or generate one
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY
-  ? Buffer.from(process.env.ENCRYPTION_KEY, 'hex')
-  : crypto.randomBytes(KEY_LENGTH);
+  ? process.env.ENCRYPTION_KEY
+  : crypto.randomBytes(KEY_LENGTH).toString('hex');
 
 if (!process.env.ENCRYPTION_KEY) {
   console.warn(
@@ -44,17 +42,23 @@ export function encryptText(
   userKey?: string
 ): EncryptedData {
   try {
-    let key = ENCRYPTION_KEY;
-    let salt: Buffer | undefined;
+    let keyBuffer: Buffer;
+    let salt: Buffer | undefined = undefined;
 
     // If user-specific key is provided, derive key from it
     if (userKey) {
-      const salt = crypto.randomBytes(SALT_LENGTH);
-      key = deriveKey(userKey, salt);
+      salt = crypto.randomBytes(SALT_LENGTH);
+      keyBuffer = deriveKey(userKey, salt);
+    } else {
+      keyBuffer = Buffer.from(ENCRYPTION_KEY, 'hex');
     }
 
     const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipher('aes-256-cbc', key);
+    const cipher = crypto.createCipheriv(
+      'aes-256-cbc',
+      keyBuffer.subarray(0, 32),
+      iv
+    );
 
     let encrypted = cipher.update(plaintext, 'utf8', 'hex');
     encrypted += cipher.final('hex');
@@ -79,15 +83,22 @@ export function decryptText(
   userKey?: string
 ): string {
   try {
-    let key = ENCRYPTION_KEY;
+    let keyBuffer: Buffer;
 
     // If user-specific key was used, derive it again
     if (userKey && encryptedData.salt) {
       const salt = Buffer.from(encryptedData.salt, 'hex');
-      key = deriveKey(userKey, salt);
+      keyBuffer = deriveKey(userKey, salt);
+    } else {
+      keyBuffer = Buffer.from(ENCRYPTION_KEY, 'hex');
     }
 
-    const decipher = crypto.createDecipher('aes-256-cbc', key);
+    const iv = Buffer.from(encryptedData.iv, 'hex');
+    const decipher = crypto.createDecipheriv(
+      'aes-256-cbc',
+      keyBuffer.subarray(0, 32),
+      iv
+    );
 
     let decrypted = decipher.update(encryptedData.encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');

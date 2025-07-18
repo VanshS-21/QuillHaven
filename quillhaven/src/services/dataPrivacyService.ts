@@ -110,22 +110,22 @@ export class DataPrivacyService {
 
       // Process projects and decrypt content if needed
       if (options.includeProjects && user.projects) {
-        exportData.projects = user.projects.map(project => {
+        exportData.projects = user.projects.map((project: any) => {
           const processedProject = {
             ...project,
-            chapters: project.chapters?.map(chapter => ({
+            chapters: project.chapters?.map((chapter: any) => ({
               ...chapter,
               content: this.decryptContentIfNeeded(chapter.content),
             })),
-            characters: project.characters?.map(character => ({
+            characters: project.characters?.map((character: any) => ({
               ...character,
               description: this.decryptContentIfNeeded(character.description),
             })),
-            plotThreads: project.plotThreads?.map(thread => ({
+            plotThreads: project.plotThreads?.map((thread: any) => ({
               ...thread,
               description: this.decryptContentIfNeeded(thread.description),
             })),
-            worldElements: project.worldElements?.map(element => ({
+            worldElements: project.worldElements?.map((element: any) => ({
               ...element,
               description: this.decryptContentIfNeeded(element.description),
             })),
@@ -135,7 +135,7 @@ export class DataPrivacyService {
           if (processedProject.chapters) {
             exportData.metadata.totalChapters += processedProject.chapters.length;
             exportData.metadata.totalWords += processedProject.chapters.reduce(
-              (sum, chapter) => sum + (chapter.wordCount || 0), 0
+              (sum: number, chapter: any) => sum + (chapter.wordCount || 0), 0
             );
           }
 
@@ -427,7 +427,7 @@ export class DataPrivacyService {
   private verifyDeletionToken(userId: string, token: string): boolean {
     // In a real implementation, you would check against stored tokens
     // For now, we'll do a simple verification
-    return token && token.length === 64; // SHA256 hex length
+    return Boolean(token && token.length === 64); // SHA256 hex length
   }
 }
 

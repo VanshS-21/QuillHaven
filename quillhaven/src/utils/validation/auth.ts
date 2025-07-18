@@ -318,3 +318,142 @@ export function checkPasswordStrength(password: string): {
     isStrong,
   };
 }
+
+// Additional validation functions for API routes
+
+export interface LoginData {
+  email: string;
+  password: string;
+}
+
+export interface RegistrationData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface PasswordResetData {
+  token: string;
+  password: string;
+  confirmPassword: string;
+}
+
+/**
+ * Validate login data
+ */
+export function validateLogin(data: LoginData): ValidationResult {
+  const errors: string[] = [];
+  
+  const emailResult = validateEmail(data.email);
+  if (!emailResult.isValid) {
+    errors.push(...emailResult.errors);
+  }
+  
+  if (!data.password || data.password.length === 0) {
+    errors.push('Password is required');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedData: {
+      email: sanitizeEmail(data.email),
+      password: data.password,
+    },
+  };
+}
+
+/**
+ * Validate registration data
+ */
+export function validateRegistration(data: RegistrationData): ValidationResult {
+  const errors: string[] = [];
+  
+  const emailResult = validateEmail(data.email);
+  if (!emailResult.isValid) {
+    errors.push(...emailResult.errors);
+  }
+  
+  const passwordResult = validatePassword(data.password);
+  if (!passwordResult.isValid) {
+    errors.push(...passwordResult.errors);
+  }
+  
+  if (data.password !== data.confirmPassword) {
+    errors.push('Passwords do not match');
+  }
+  
+  if (!data.firstName || data.firstName.trim().length === 0) {
+    errors.push('First name is required');
+  }
+  
+  if (!data.lastName || data.lastName.trim().length === 0) {
+    errors.push('Last name is required');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedData: {
+      email: sanitizeEmail(data.email),
+      password: data.password,
+      confirmPassword: data.confirmPassword,
+      firstName: sanitizeName(data.firstName),
+      lastName: sanitizeName(data.lastName),
+    },
+  };
+}
+
+/**
+ * Validate password reset data
+ */
+export function validatePasswordReset(data: PasswordResetData): ValidationResult {
+  const errors: string[] = [];
+  
+  const tokenResult = validateResetToken(data.token);
+  if (!tokenResult.isValid) {
+    errors.push(...tokenResult.errors);
+  }
+  
+  const passwordResult = validatePassword(data.password);
+  if (!passwordResult.isValid) {
+    errors.push(...passwordResult.errors);
+  }
+  
+  if (data.password !== data.confirmPassword) {
+    errors.push('Passwords do not match');
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors,
+    sanitizedData: {
+      token: data.token.trim(),
+      password: data.password,
+      confirmPassword: data.confirmPassword,
+    },
+  };
+}
+
+/**
+ * Validate password reset request
+ */
+export function validatePasswordResetRequest(email: string): ValidationResult {
+  return validateEmail(email);
+}
+
+/**
+ * Sanitize email address
+ */
+export function sanitizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/**
+ * Sanitize name fields
+ */
+export function sanitizeName(name: string): string {
+  return name.trim().replace(/\s+/g, ' ');
+}
