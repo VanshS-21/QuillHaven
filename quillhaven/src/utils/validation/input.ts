@@ -186,8 +186,24 @@ export function sanitizeHtml(html: string): string {
     ],
     ALLOWED_ATTR: ['href', 'alt', 'title'],
     ALLOW_DATA_ATTR: false,
-    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur'],
-    FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
+    FORBID_ATTR: [
+      'onclick',
+      'onload',
+      'onerror',
+      'onmouseover',
+      'onfocus',
+      'onblur',
+    ],
+    FORBID_TAGS: [
+      'script',
+      'object',
+      'embed',
+      'form',
+      'input',
+      'textarea',
+      'select',
+      'button',
+    ],
   });
 }
 
@@ -428,7 +444,7 @@ const VALID_GENRES = [
   'Contemporary',
   'Classic',
   'Experimental',
-  'Other'
+  'Other',
 ];
 
 // Performance and security constants
@@ -438,23 +454,27 @@ const REDOS_TIMEOUT = 1000; // 1 second timeout for regex operations
 /**
  * Safe regex execution with timeout to prevent ReDoS attacks
  */
-function safeRegexTest(pattern: RegExp, text: string, timeoutMs: number = REDOS_TIMEOUT): boolean {
+function safeRegexTest(
+  pattern: RegExp,
+  text: string,
+  timeoutMs: number = REDOS_TIMEOUT
+): boolean {
   const startTime = Date.now();
-  
+
   try {
     // Simple length check to prevent obvious ReDoS attempts
     if (text.length > MAX_INPUT_LENGTH) {
       return false;
     }
-    
+
     const result = pattern.test(text);
-    
+
     // Check if execution took too long
     if (Date.now() - startTime > timeoutMs) {
       console.warn('Regex execution timeout detected, possible ReDoS attack');
       return false;
     }
-    
+
     return result;
   } catch (error) {
     console.warn('Regex execution error:', error);
@@ -471,7 +491,10 @@ export function validateProjectData(data: ProjectData): ValidationResult {
   const sanitized: Record<string, any> = {};
 
   // Performance check: prevent processing of extremely large inputs
-  const totalInputSize = (data.title?.length || 0) + (data.description?.length || 0) + (data.genre?.length || 0);
+  const totalInputSize =
+    (data.title?.length || 0) +
+    (data.description?.length || 0) +
+    (data.genre?.length || 0);
   if (totalInputSize > MAX_INPUT_LENGTH) {
     return {
       isValid: false,
@@ -586,7 +609,7 @@ export function validateChapterData(data: ChapterData): ValidationResult {
   }
 
   const hasErrors = Object.keys(errors).length > 0;
-  
+
   // Calculate word count with performance optimization
   let wordCount = 0;
   if (data.content && !hasErrors) {
@@ -624,7 +647,10 @@ export function validateExportRequest(data: ExportRequest): ValidationResult {
   }
 
   // Validate includeMetadata (optional boolean)
-  if (data.includeMetadata !== undefined && typeof data.includeMetadata !== 'boolean') {
+  if (
+    data.includeMetadata !== undefined &&
+    typeof data.includeMetadata !== 'boolean'
+  ) {
     errors.includeMetadata = ['Include metadata must be a boolean value'];
   }
 
@@ -636,7 +662,7 @@ export function validateExportRequest(data: ExportRequest): ValidationResult {
       errors.chapterIds = ['Chapter IDs array cannot be empty'];
     } else {
       // Check for empty strings in array
-      const hasEmptyIds = data.chapterIds.some(id => !id || !id.trim());
+      const hasEmptyIds = data.chapterIds.some((id) => !id || !id.trim());
       if (hasEmptyIds) {
         errors.chapterIds = ['Chapter IDs cannot contain empty values'];
       }
@@ -667,34 +693,42 @@ export function validateWordCount(text: string): number {
 
   // Remove HTML tags for accurate word counting (optimized regex)
   const plainText = text.replace(/<[^>]*?>/g, '');
-  
+
   // Handle empty or whitespace-only text
   if (!plainText.trim()) {
     return 0;
   }
-  
+
   // Performance optimization: use simpler regex for very large texts
   if (plainText.length > 50000) {
     // For large texts, use a simpler but faster approach
-    const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+    const words = plainText
+      .trim()
+      .split(/\s+/)
+      .filter((word) => word.length > 0);
     return words.length;
   }
-  
+
   // Split by word boundaries to handle contractions, hyphens, and Unicode properly
   // This regex matches sequences of word characters including Unicode letters
-  const words = plainText.match(/[\w\u00C0-\u024F\u1E00-\u1EFF\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\u4E00-\u9FFF\u3400-\u4DBF\u20000-\u2A6DF\u2A700-\u2B73F\u2B740-\u2B81F\u2B820-\u2CEAF\uF900-\uFAFF\u2F800-\u2FA1F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g);
-  
+  const words = plainText.match(
+    /[\w\u00C0-\u024F\u1E00-\u1EFF\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\u4E00-\u9FFF\u3400-\u4DBF\u20000-\u2A6DF\u2A700-\u2B73F\u2B740-\u2B81F\u2B820-\u2CEAF\uF900-\uFAFF\u2F800-\u2FA1F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g
+  );
+
   return words ? words.length : 0;
 }
 
 /**
  * Validate file size with configurable limits
  */
-export function validateFileSize(size: number, maxSize: number = 5 * 1024 * 1024): boolean {
+export function validateFileSize(
+  size: number,
+  maxSize: number = 5 * 1024 * 1024
+): boolean {
   if (typeof size !== 'number' || size <= 0) {
     return false;
   }
-  
+
   return size <= maxSize;
 }
 
@@ -728,7 +762,12 @@ export function validateImageUpload(file: any): ValidationResult {
   }
 
   // Validate file type
-  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  const validImageTypes = [
+    'image/jpeg',
+    'image/png',
+    'image/gif',
+    'image/webp',
+  ];
   if (!validImageTypes.includes(file.type)) {
     errors.push('File must be an image');
   }

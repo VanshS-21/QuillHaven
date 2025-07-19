@@ -67,7 +67,8 @@ describe('AuthService', () => {
           isEmailVerified: mockUser.isEmailVerified,
           subscriptionTier: mockUser.subscriptionTier,
         },
-        message: 'Registration successful. Please check your email for verification.',
+        message:
+          'Registration successful. Please check your email for verification.',
       });
 
       expect(mockBcrypt.hash).toHaveBeenCalledWith(mockUserData.password, 12);
@@ -231,7 +232,11 @@ describe('AuthService', () => {
         passwordResetExpires: null,
       };
 
-      const updatedUser = { ...mockUser, isEmailVerified: true, emailVerificationToken: null };
+      const updatedUser = {
+        ...mockUser,
+        isEmailVerified: true,
+        emailVerificationToken: null,
+      };
 
       prismaMock.user.findFirst.mockResolvedValue(mockUser);
       prismaMock.user.update.mockResolvedValue(updatedUser);
@@ -312,7 +317,9 @@ describe('AuthService', () => {
     it('should not reveal if user does not exist', async () => {
       prismaMock.user.findUnique.mockResolvedValue(null);
 
-      const result = await authService.requestPasswordReset('nonexistent@example.com');
+      const result = await authService.requestPasswordReset(
+        'nonexistent@example.com'
+      );
 
       expect(result).toEqual({
         message: 'Password reset email sent',
@@ -387,9 +394,9 @@ describe('AuthService', () => {
 
       prismaMock.user.findFirst.mockResolvedValue(mockUser);
 
-      await expect(authService.resetPassword(token, 'newPassword')).rejects.toThrow(
-        'Invalid or expired reset token'
-      );
+      await expect(
+        authService.resetPassword(token, 'newPassword')
+      ).rejects.toThrow('Invalid or expired reset token');
     });
   });
 
@@ -413,7 +420,9 @@ describe('AuthService', () => {
         throw new Error('Invalid token');
       });
 
-      await expect(authService.validateToken(token)).rejects.toThrow('Invalid token');
+      await expect(authService.validateToken(token)).rejects.toThrow(
+        'Invalid token'
+      );
     });
   });
 

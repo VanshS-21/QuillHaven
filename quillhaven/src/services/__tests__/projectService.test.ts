@@ -56,7 +56,10 @@ describe('ProjectService', () => {
 
       prismaMock.project.create.mockResolvedValue(mockProject);
 
-      const result = await projectService.createProject(mockUser.id, mockProjectData);
+      const result = await projectService.createProject(
+        mockUser.id,
+        mockProjectData
+      );
 
       expect(result).toEqual(mockProject);
       expect(prismaMock.project.create).toHaveBeenCalledWith({
@@ -116,7 +119,12 @@ describe('ProjectService', () => {
           targetLength: 80000,
           currentWordCount: 5000,
           status: 'in-progress',
-          context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+          context: {
+            characters: [],
+            plotThreads: [],
+            worldBuilding: [],
+            timeline: [],
+          },
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -129,7 +137,12 @@ describe('ProjectService', () => {
           targetLength: 100000,
           currentWordCount: 0,
           status: 'draft',
-          context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+          context: {
+            characters: [],
+            plotThreads: [],
+            worldBuilding: [],
+            timeline: [],
+          },
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -138,7 +151,10 @@ describe('ProjectService', () => {
       prismaMock.project.findMany.mockResolvedValue(mockProjects);
       prismaMock.project.count.mockResolvedValue(2);
 
-      const result = await projectService.getProjectsByUser(userId, { page: 1, limit: 10 });
+      const result = await projectService.getProjectsByUser(userId, {
+        page: 1,
+        limit: 10,
+      });
 
       expect(result).toEqual({
         projects: mockProjects,
@@ -166,7 +182,12 @@ describe('ProjectService', () => {
           targetLength: 80000,
           currentWordCount: 5000,
           status: 'in-progress',
-          context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+          context: {
+            characters: [],
+            plotThreads: [],
+            worldBuilding: [],
+            timeline: [],
+          },
           createdAt: new Date(),
           updatedAt: new Date(),
         },
@@ -191,7 +212,7 @@ describe('ProjectService', () => {
 
     it('should search projects by title', async () => {
       const searchTerm = 'Novel';
-      
+
       prismaMock.project.findMany.mockResolvedValue([]);
       prismaMock.project.count.mockResolvedValue(0);
 
@@ -230,7 +251,12 @@ describe('ProjectService', () => {
         targetLength: 80000,
         currentWordCount: 5000,
         status: 'in-progress',
-        context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+        context: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -263,7 +289,12 @@ describe('ProjectService', () => {
         targetLength: 80000,
         currentWordCount: 5000,
         status: 'in-progress',
-        context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+        context: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -296,7 +327,12 @@ describe('ProjectService', () => {
         targetLength: 80000,
         currentWordCount: 5000,
         status: 'draft',
-        context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+        context: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -310,7 +346,11 @@ describe('ProjectService', () => {
       prismaMock.project.findFirst.mockResolvedValue(existingProject);
       prismaMock.project.update.mockResolvedValue(updatedProject);
 
-      const result = await projectService.updateProject(projectId, userId, updateData);
+      const result = await projectService.updateProject(
+        projectId,
+        userId,
+        updateData
+      );
 
       expect(result).toEqual(updatedProject);
       expect(prismaMock.project.update).toHaveBeenCalledWith({
@@ -342,7 +382,12 @@ describe('ProjectService', () => {
         targetLength: 80000,
         currentWordCount: 5000,
         status: 'draft',
-        context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+        context: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -354,7 +399,7 @@ describe('ProjectService', () => {
       const result = await projectService.deleteProject(projectId, userId);
 
       expect(result).toEqual({ message: 'Project deleted successfully' });
-      
+
       // Verify deletion order
       expect(prismaMock.chapter.deleteMany).toHaveBeenCalledWith({
         where: { projectId },

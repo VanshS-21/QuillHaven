@@ -5,7 +5,10 @@ import { POST as loginHandler } from '@/app/api/auth/login/route';
 import { prismaMock } from '../../../__mocks__/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { setupTestEnvironment, createMockEmailService } from '../setup/testEnvironment';
+import {
+  setupTestEnvironment,
+  createMockEmailService,
+} from '../setup/testEnvironment';
 
 // Mock email service first
 jest.mock('@/lib/email', () => ({
@@ -56,7 +59,7 @@ describe('User Registration E2E Flow', () => {
     // Step 1: Register new user
     const hashedPassword = 'hashed-password-123';
     const verificationToken = 'verification-token-123';
-    
+
     const newUser = {
       id: 'user-1',
       email: userData.email,
@@ -77,11 +80,14 @@ describe('User Registration E2E Flow', () => {
     prismaMock.user.findUnique.mockResolvedValue(null); // User doesn't exist
     prismaMock.user.create.mockResolvedValue(newUser);
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -101,14 +107,17 @@ describe('User Registration E2E Flow', () => {
     prismaMock.user.findUnique.mockResolvedValue(newUser);
     mockBcrypt.compare.mockResolvedValue(true);
 
-    const prematureLoginRequest = new NextRequest('http://localhost:3000/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: userData.email,
-        password: userData.password,
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const prematureLoginRequest = new NextRequest(
+      'http://localhost:3000/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const prematureLoginResponse = await loginHandler(prematureLoginRequest);
     const prematureLoginData = await prematureLoginResponse.json();
@@ -126,9 +135,12 @@ describe('User Registration E2E Flow', () => {
     prismaMock.user.findFirst.mockResolvedValue(newUser);
     prismaMock.user.update.mockResolvedValue(verifiedUser);
 
-    const verifyRequest = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${verificationToken}`, {
-      method: 'GET',
-    });
+    const verifyRequest = new NextRequest(
+      `http://localhost:3000/api/auth/verify-email?token=${verificationToken}`,
+      {
+        method: 'GET',
+      }
+    );
 
     const verifyResponse = await verifyHandler(verifyRequest);
     const verifyData = await verifyResponse.json();
@@ -139,19 +151,22 @@ describe('User Registration E2E Flow', () => {
 
     // Step 4: Login after verification (should succeed)
     const jwtToken = 'jwt-token-123';
-    
+
     prismaMock.user.findUnique.mockResolvedValue(verifiedUser);
     mockBcrypt.compare.mockResolvedValue(true);
     mockJwt.sign.mockReturnValue(jwtToken);
 
-    const loginRequest = new NextRequest('http://localhost:3000/api/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({
-        email: userData.email,
-        password: userData.password,
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const loginRequest = new NextRequest(
+      'http://localhost:3000/api/auth/login',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          email: userData.email,
+          password: userData.password,
+        }),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const loginResponse = await loginHandler(loginRequest);
     const loginData = await loginResponse.json();
@@ -166,7 +181,10 @@ describe('User Registration E2E Flow', () => {
     expect(prismaMock.user.update).toHaveBeenCalledTimes(1);
     expect(mockSendVerificationEmail).toHaveBeenCalledTimes(1);
     expect(mockBcrypt.hash).toHaveBeenCalledWith(userData.password, 12);
-    expect(mockBcrypt.compare).toHaveBeenCalledWith(userData.password, hashedPassword);
+    expect(mockBcrypt.compare).toHaveBeenCalledWith(
+      userData.password,
+      hashedPassword
+    );
     expect(mockJwt.sign).toHaveBeenCalledWith(
       { userId: verifiedUser.id, email: verifiedUser.email },
       expect.any(String),
@@ -200,11 +218,14 @@ describe('User Registration E2E Flow', () => {
 
     prismaMock.user.findUnique.mockResolvedValue(existingUser);
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -220,9 +241,12 @@ describe('User Registration E2E Flow', () => {
 
     prismaMock.user.findFirst.mockResolvedValue(null);
 
-    const verifyRequest = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${invalidToken}`, {
-      method: 'GET',
-    });
+    const verifyRequest = new NextRequest(
+      `http://localhost:3000/api/auth/verify-email?token=${invalidToken}`,
+      {
+        method: 'GET',
+      }
+    );
 
     const verifyResponse = await verifyHandler(verifyRequest);
     const verifyData = await verifyResponse.json();
@@ -240,11 +264,14 @@ describe('User Registration E2E Flow', () => {
       lastName: 'Doe',
     };
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -262,11 +289,14 @@ describe('User Registration E2E Flow', () => {
       lastName: 'Doe',
     };
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -286,13 +316,18 @@ describe('User Registration E2E Flow', () => {
 
     mockBcrypt.hash.mockResolvedValue('hashed-password');
     prismaMock.user.findUnique.mockResolvedValue(null);
-    prismaMock.user.create.mockRejectedValue(new Error('Database connection failed'));
+    prismaMock.user.create.mockRejectedValue(
+      new Error('Database connection failed')
+    );
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -329,13 +364,18 @@ describe('User Registration E2E Flow', () => {
     mockBcrypt.hash.mockResolvedValue('hashed-password');
     prismaMock.user.findUnique.mockResolvedValue(null);
     prismaMock.user.create.mockResolvedValue(newUser);
-    mockSendVerificationEmail.mockRejectedValue(new Error('Email service unavailable'));
+    mockSendVerificationEmail.mockRejectedValue(
+      new Error('Email service unavailable')
+    );
 
-    const registerRequest = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const registerRequest = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const registerResponse = await registerHandler(registerRequest);
     const registerData = await registerResponse.json();
@@ -371,25 +411,31 @@ describe('User Registration E2E Flow', () => {
     };
 
     mockBcrypt.hash.mockResolvedValue('hashed-password');
-    
+
     // First request succeeds
     prismaMock.user.findUnique.mockResolvedValueOnce(null);
     prismaMock.user.create.mockResolvedValueOnce(newUser);
-    
+
     // Second request finds existing user
     prismaMock.user.findUnique.mockResolvedValueOnce(newUser);
 
-    const request1 = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const request1 = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
-    const request2 = new NextRequest('http://localhost:3000/api/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(userData),
-      headers: { 'Content-Type': 'application/json' },
-    });
+    const request2 = new NextRequest(
+      'http://localhost:3000/api/auth/register',
+      {
+        method: 'POST',
+        body: JSON.stringify(userData),
+        headers: { 'Content-Type': 'application/json' },
+      }
+    );
 
     const [response1, response2] = await Promise.all([
       registerHandler(request1),
@@ -400,8 +446,12 @@ describe('User Registration E2E Flow', () => {
     const data2 = await response2.json();
 
     // One should succeed, one should fail
-    const successCount = [response1.status, response2.status].filter(status => status === 201).length;
-    const conflictCount = [response1.status, response2.status].filter(status => status === 409).length;
+    const successCount = [response1.status, response2.status].filter(
+      (status) => status === 201
+    ).length;
+    const conflictCount = [response1.status, response2.status].filter(
+      (status) => status === 409
+    ).length;
 
     expect(successCount).toBe(1);
     expect(conflictCount).toBe(1);
@@ -428,9 +478,12 @@ describe('User Registration E2E Flow', () => {
 
     prismaMock.user.findFirst.mockResolvedValue(expiredUser);
 
-    const verifyRequest = new NextRequest('http://localhost:3000/api/auth/verify-email?token=expired-token', {
-      method: 'GET',
-    });
+    const verifyRequest = new NextRequest(
+      'http://localhost:3000/api/auth/verify-email?token=expired-token',
+      {
+        method: 'GET',
+      }
+    );
 
     const verifyResponse = await verifyHandler(verifyRequest);
     const verifyData = await verifyResponse.json();

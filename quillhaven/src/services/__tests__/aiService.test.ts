@@ -19,9 +19,9 @@ describe('AIService', () => {
       getGenerativeModel: jest.fn().mockReturnValue(mockModel),
     } as any;
 
-    (GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>).mockImplementation(
-      () => mockGenAI
-    );
+    (
+      GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>
+    ).mockImplementation(() => mockGenAI);
 
     aiService = new AIService();
   });
@@ -32,7 +32,7 @@ describe('AIService', () => {
 
   describe('generateChapter', () => {
     const mockRequest: ChapterGenerationRequest = {
-      prompt: 'Write a chapter about the hero\'s journey',
+      prompt: "Write a chapter about the hero's journey",
       projectContext: {
         characters: [
           {
@@ -41,7 +41,7 @@ describe('AIService', () => {
             description: 'A brave hero',
             role: 'protagonist',
             relationships: [],
-            developmentArc: 'Hero\'s journey',
+            developmentArc: "Hero's journey",
           },
         ],
         plotThreads: [
@@ -95,7 +95,7 @@ describe('AIService', () => {
       });
 
       expect(mockModel.generateContent).toHaveBeenCalledWith(
-        expect.stringContaining('Write a chapter about the hero\'s journey')
+        expect.stringContaining("Write a chapter about the hero's journey")
       );
     });
 
@@ -147,15 +147,17 @@ describe('AIService', () => {
 
   describe('analyzeContext', () => {
     it('should extract characters from content', async () => {
-      const content = 'John walked through the forest. Mary followed behind him.';
-      
+      const content =
+        'John walked through the forest. Mary followed behind him.';
+
       const mockResponse = {
         response: {
-          text: () => JSON.stringify({
-            characters: ['John', 'Mary'],
-            locations: ['forest'],
-            plotPoints: ['journey begins'],
-          }),
+          text: () =>
+            JSON.stringify({
+              characters: ['John', 'Mary'],
+              locations: ['forest'],
+              plotPoints: ['journey begins'],
+            }),
         },
       };
 
@@ -170,7 +172,7 @@ describe('AIService', () => {
 
     it('should handle malformed JSON responses', async () => {
       const content = 'Some content';
-      
+
       const mockResponse = {
         response: {
           text: () => 'Invalid JSON response',
@@ -209,19 +211,20 @@ describe('AIService', () => {
 
     it('should identify consistency issues', async () => {
       const newContent = 'John suddenly had blue eyes instead of brown.';
-      
+
       const mockResponse = {
         response: {
-          text: () => JSON.stringify({
-            issues: [
-              {
-                type: 'character_inconsistency',
-                description: 'Eye color changed',
-                severity: 'medium',
-                suggestions: ['Maintain consistent character descriptions'],
-              },
-            ],
-          }),
+          text: () =>
+            JSON.stringify({
+              issues: [
+                {
+                  type: 'character_inconsistency',
+                  description: 'Eye color changed',
+                  severity: 'medium',
+                  suggestions: ['Maintain consistent character descriptions'],
+                },
+              ],
+            }),
         },
       };
 
@@ -235,7 +238,7 @@ describe('AIService', () => {
 
     it('should return no issues for consistent content', async () => {
       const newContent = 'John continued his heroic journey.';
-      
+
       const mockResponse = {
         response: {
           text: () => JSON.stringify({ issues: [] }),
@@ -304,7 +307,9 @@ describe('AIService', () => {
         },
       };
 
-      mockModel.generateContent.mockRejectedValue(new Error('Persistent error'));
+      mockModel.generateContent.mockRejectedValue(
+        new Error('Persistent error')
+      );
 
       await expect(aiService.generateChapter(mockRequest)).rejects.toThrow();
       expect(mockModel.generateContent).toHaveBeenCalledTimes(3); // Initial + 2 retries
@@ -360,7 +365,7 @@ describe('AIService', () => {
       await aiService.generateChapter(mockRequest);
 
       const calledPrompt = mockModel.generateContent.mock.calls[0][0];
-      
+
       // Check that prompt includes all necessary elements
       expect(calledPrompt).toContain('Write about conflict');
       expect(calledPrompt).toContain('Alice');

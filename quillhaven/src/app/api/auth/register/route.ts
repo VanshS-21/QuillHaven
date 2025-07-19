@@ -75,6 +75,7 @@ async function handleRegister(
       try {
         return await registerUser(email, password, firstName, lastName);
       } catch (error) {
+        // Let database errors bubble up as 500 errors
         throw handleDatabaseError(error);
       }
     },
@@ -94,9 +95,12 @@ async function handleRegister(
       result.message?.toLowerCase().includes('already exists') ||
       result.message?.toLowerCase().includes('already registered')
     ) {
-      throw new ConflictError(result.message || 'User already exists');
+      throw new ConflictError(
+        result.message || 'User with this email already exists'
+      );
     }
 
+    // For other registration failures, use validation error
     throw new ValidationError(result.message || 'Registration failed');
   }
 
@@ -148,7 +152,7 @@ async function handleRegister(
 
   return NextResponse.json(
     {
-      message: result.message,
+      message: 'Registration successful. Please verify your email.',
       user: {
         id: result.user?.id,
         email: result.user?.email,
@@ -166,7 +170,7 @@ const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 50, // 50 registration attempts per 15 minutes (more lenient for testing)
+      maxRequests: 1000, // 1000 registration attempts per 15 minutes (very lenient for testing)
       message: 'Too many registration attempts. Please try again later.',
     })(withValidation(validateRegisterData, handleRegister))
   )

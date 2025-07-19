@@ -37,11 +37,11 @@ export function setupTestEnvironment() {
   // Handle process cleanup
   const cleanup = async () => {
     await runCleanupHandlers();
-    
+
     // Force close any remaining handles
     if (process.env.NODE_ENV === 'test') {
       // Give a small delay for cleanup
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
   };
 
@@ -148,7 +148,9 @@ export function createMockChapter(overrides: Partial<any> = {}) {
 /**
  * Create mock project context for AI tests
  */
-export function createMockProjectContext(size: 'small' | 'medium' | 'large' = 'medium') {
+export function createMockProjectContext(
+  size: 'small' | 'medium' | 'large' = 'medium'
+) {
   const sizes = {
     small: { characters: 5, plotThreads: 2, worldBuilding: 3 },
     medium: { characters: 20, plotThreads: 8, worldBuilding: 15 },

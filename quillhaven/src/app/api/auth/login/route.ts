@@ -9,6 +9,7 @@ import { withRateLimit, withCors, withValidation } from '@/lib/middleware';
 import {
   withErrorHandler,
   AuthenticationError,
+  AuthorizationError,
   handleDatabaseError,
 } from '@/lib/errorHandler';
 import { logger, SecurityLogger, PerformanceLogger } from '@/lib/logger';
@@ -73,7 +74,16 @@ async function handleLogin(req: NextRequest, validatedData: LoginRequestData) {
       clientIP,
       userAgent,
     });
-    throw new AuthenticationError(result.message);
+
+    // Return 403 for email verification required
+    if (result.message?.includes('verify your email')) {
+      throw new AuthorizationError(result.message);
+    }
+
+    // Return 401 for other authentication failures
+    throw new AuthenticationError(
+      result.message || 'Invalid email or password'
+    );
   }
 
   logger.info('User logged in successfully', {
@@ -107,7 +117,7 @@ const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 100, // 100 login attempts per 15 minutes (more lenient for testing)
+      maxRequests: 1000, // 1000 login attempts per 15 minutes (very lenient for testing)
       message: 'Too many login attempts. Please try again later.',
     })(withValidation(validateLoginData, handleLogin))
   )

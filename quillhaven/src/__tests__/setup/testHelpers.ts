@@ -16,12 +16,7 @@ export function createMockRequest(
     searchParams?: Record<string, string>;
   } = {}
 ): NextRequest {
-  const {
-    method = 'GET',
-    body,
-    headers = {},
-    searchParams = {},
-  } = options;
+  const { method = 'GET', body, headers = {}, searchParams = {} } = options;
 
   // Build URL with search params
   const urlObj = new URL(url);
@@ -78,14 +73,15 @@ export async function extractJson(response: Response): Promise<any> {
  * Wait for a specified amount of time
  */
 export function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms));
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * Generate random string for testing
  */
 export function randomString(length: number = 10): string {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  const chars =
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let result = '';
   for (let i = 0; i < length; i++) {
     result += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -164,7 +160,8 @@ export class TestDataFactory {
       id: `test-chapter-${this.chapterCounter}`,
       projectId: projectId || `test-project-${this.projectCounter}`,
       title: `Chapter ${this.chapterCounter}`,
-      content: `This is the content for chapter ${this.chapterCounter}. `.repeat(50),
+      content:
+        `This is the content for chapter ${this.chapterCounter}. `.repeat(50),
       wordCount: 250,
       order: this.chapterCounter,
       status: 'draft',
@@ -245,14 +242,20 @@ export class PerformanceHelper {
     return duration;
   }
 
-  static async measureAsync<T>(name: string, fn: () => Promise<T>): Promise<{ result: T; duration: number }> {
+  static async measureAsync<T>(
+    name: string,
+    fn: () => Promise<T>
+  ): Promise<{ result: T; duration: number }> {
     this.startMeasurement(name);
     const result = await fn();
     const duration = this.endMeasurement(name);
     return { result, duration };
   }
 
-  static measure<T>(name: string, fn: () => T): { result: T; duration: number } {
+  static measure<T>(
+    name: string,
+    fn: () => T
+  ): { result: T; duration: number } {
     this.startMeasurement(name);
     const result = fn();
     const duration = this.endMeasurement(name);
@@ -277,18 +280,20 @@ export class MemoryHelper {
     return `RSS: ${formatBytes(usage.rss)}, Heap Used: ${formatBytes(usage.heapUsed)}, Heap Total: ${formatBytes(usage.heapTotal)}, External: ${formatBytes(usage.external)}`;
   }
 
-  static async measureMemoryUsage<T>(fn: () => Promise<T>): Promise<{ result: T; memoryDelta: number }> {
+  static async measureMemoryUsage<T>(
+    fn: () => Promise<T>
+  ): Promise<{ result: T; memoryDelta: number }> {
     const initialMemory = this.getMemoryUsage().heapUsed;
     const result = await fn();
-    
+
     // Force garbage collection if available
     if (global.gc) {
       global.gc();
     }
-    
+
     const finalMemory = this.getMemoryUsage().heapUsed;
     const memoryDelta = finalMemory - initialMemory;
-    
+
     return { result, memoryDelta };
   }
 }
@@ -297,14 +302,20 @@ export class MemoryHelper {
  * Database test utilities
  */
 export class DatabaseTestHelper {
-  static createMockPrismaError(code: string, message: string = 'Database error') {
+  static createMockPrismaError(
+    code: string,
+    message: string = 'Database error'
+  ) {
     const error = new Error(message) as any;
     error.code = code;
     return error;
   }
 
   static createUniqueConstraintError(field: string) {
-    return this.createMockPrismaError('P2002', `Unique constraint failed on the constraint: ${field}`);
+    return this.createMockPrismaError(
+      'P2002',
+      `Unique constraint failed on the constraint: ${field}`
+    );
   }
 
   static createNotFoundError() {
@@ -312,7 +323,7 @@ export class DatabaseTestHelper {
   }
 
   static createConnectionError() {
-    return this.createMockPrismaError('P1001', 'Can\'t reach database server');
+    return this.createMockPrismaError('P1001', "Can't reach database server");
   }
 }
 
@@ -326,14 +337,14 @@ export class AsyncTestHelper {
     interval: number = 100
   ): Promise<void> {
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < timeout) {
       if (await condition()) {
         return;
       }
       await wait(interval);
     }
-    
+
     throw new Error(`Condition not met within ${timeout}ms`);
   }
 
@@ -344,7 +355,7 @@ export class AsyncTestHelper {
   ): Promise<void> {
     const startTime = Date.now();
     let lastError: Error | null = null;
-    
+
     while (Date.now() - startTime < timeout) {
       try {
         await fn();
@@ -354,7 +365,7 @@ export class AsyncTestHelper {
         await wait(interval);
       }
     }
-    
+
     throw lastError || new Error(`Expectation not met within ${timeout}ms`);
   }
 }

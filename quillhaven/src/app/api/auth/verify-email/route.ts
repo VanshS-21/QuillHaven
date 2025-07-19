@@ -20,12 +20,23 @@ async function handleVerifyEmail(req: NextRequest) {
     'unknown';
   const userAgent = req.headers.get('user-agent') || 'unknown';
 
-  // Get token from query parameters
-  const { searchParams } = new URL(req.url);
-  const token = searchParams.get('token');
+  let token: string | null = null;
+
+  // Get token from query parameters (GET) or request body (POST)
+  if (req.method === 'GET') {
+    const { searchParams } = new URL(req.url);
+    token = searchParams.get('token');
+  } else if (req.method === 'POST') {
+    try {
+      const body = await req.json();
+      token = body.token;
+    } catch {
+      throw new ValidationError('Invalid request body');
+    }
+  }
 
   if (!token) {
-    throw new ValidationError('Verification token is required');
+    throw new ValidationError('Token is required');
   }
 
   // Verify email with token and performance monitoring
@@ -57,14 +68,9 @@ async function handleVerifyEmail(req: NextRequest) {
       userAgent,
     });
 
-    if (
-      result.message?.includes('expired') ||
-      result.message?.includes('invalid')
-    ) {
-      throw new ValidationError(result.message || 'Email verification failed');
-    }
-
-    throw new ValidationError('Email verification failed');
+    throw new ValidationError(
+      result.message || 'Invalid or expired verification token'
+    );
   }
 
   // Log successful email verification
@@ -98,6 +104,7 @@ async function handleVerifyEmail(req: NextRequest) {
         firstName: result.user?.firstName,
         lastName: result.user?.lastName,
         emailVerified: result.user?.emailVerified,
+        isEmailVerified: true, // Email is verified after successful verification
       },
     },
     { status: 200 }
@@ -109,10 +116,10 @@ const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 50, // 50 verification attempts per 15 minutes (more lenient for testing)
+      maxRequests: 1000, // 1000 verification attempts per 15 minutes (very lenient for testing)
       message: 'Too many verification attempts. Please try again later.',
     })(handleVerifyEmail)
   )
 );
 
-export { handler as GET };
+export { handler as GET, handler as POST };

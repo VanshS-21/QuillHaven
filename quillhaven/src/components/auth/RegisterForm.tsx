@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -23,6 +23,8 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from './AuthContext';
+import { useNotifications } from '@/components/ui/NotificationSystem';
+import { AlertCircle, Eye, EyeOff, Loader2, WifiOff, CheckCircle, Clock } from 'lucide-react';
 import type { RegisterFormData } from '@/types/auth';
 
 const registerSchema = z
@@ -34,7 +36,10 @@ const registerSchema = z
     password: z
       .string()
       .min(1, 'Password is required')
-      .min(6, 'Password must be at least 6 characters'),
+      .min(8, 'Password must be at least 8 characters')
+      .regex(/[A-Z]/, 'Password must contain at least one uppercase letter')
+      .regex(/[a-z]/, 'Password must contain at least one lowercase letter')
+      .regex(/[0-9]/, 'Password must contain at least one number'),
     confirmPassword: z.string().min(1, 'Please confirm your password'),
     firstName: z.string().optional(),
     lastName: z.string().optional(),
@@ -58,12 +63,17 @@ const verificationSchema = z.object({
 type VerificationFormData = z.infer<typeof verificationSchema>;
 
 export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
-  const { register, isLoading } = useAuth();
-  const [error, setError] = useState<string>('');
+  const { register, isLoading, error: authError } = useAuth();
+  const { notifyError, notifySuccess, notifyInfo } = useNotifications();
+  const [localError, setLocalError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [showVerification, setShowVerification] = useState(false);
   const [verificationLoading, setVerificationLoading] = useState(false);
   const [registeredEmail, setRegisteredEmail] = useState<string>('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   const form = useForm<RegisterFormData>({
     resolver: zodResolver(registerSchema),
@@ -83,24 +93,82 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
     },
   });
 
+  // Monitor online status
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Clear local error when auth error changes
+  useEffect(() => {
+    if (authError) {
+      setLocalError('');
+    }
+  }, [authError]);
+
+  // Resend cooldown timer
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown(prev => prev - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+
   const onSubmit = async (data: RegisterFormData) => {
     try {
-      setError('');
+      setLocalError('');
       setSuccess('');
+      
+      if (!isOnline) {
+        setLocalError('You appear to be offline. Please check your connection.');
+        return;
+      }
+
       await register(data);
       setRegisteredEmail(data.email);
       setShowVerification(true);
-      setSuccess(
-        'Account created successfully! Please check your email for verification or enter the verification code below.'
-      );
+      const successMessage =
+        'Account created successfully! Please check your email for verification or enter the verification code below.';
+      setSuccess(successMessage);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Registration failed');
+      const errorMessage = err instanceof Error ? err.message : 'Registration failed';
+      setLocalError(errorMessage);
+      
+      // Provide helpful error messages
+      if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        notifyError(
+          'Connection Error', 
+          'Unable to connect to server. Please check your internet connection.',
+          { persistent: true }
+        );
+      } else if (errorMessage.includes('already exists')) {
+        notifyError(
+          'Account Exists', 
+          'An account with this email already exists. Try signing in instead.',
+          {
+            action: {
+              label: 'Sign In',
+              onClick: () => onSwitchToLogin?.()
+            }
+          }
+        );
+      }
+      
+      console.error('Registration error:', err);
     }
   };
 
   const onVerificationSubmit = async (data: VerificationFormData) => {
     try {
-      setError('');
+      setLocalError('');
       setVerificationLoading(true);
 
       const response = await fetch(`/api/auth/verify-email?token=${data.code}`);
@@ -110,25 +178,93 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         throw new Error(error.error || 'Invalid verification code');
       }
 
-      setSuccess(
-        'Email verified successfully! You can now sign in to your account.'
-      );
+      const successMessage =
+        'Email verified successfully! You can now sign in to your account.';
+      setSuccess(successMessage);
       setShowVerification(false);
+      notifySuccess(
+        'Email Verified',
+        'Your account is now active. You can sign in.'
+      );
 
-      // Optionally switch to login after successful verification
+      // Switch to login after successful verification
       setTimeout(() => {
         if (onSwitchToLogin) {
           onSwitchToLogin();
         }
       }, 2000);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : 'Invalid verification code'
-      );
+      const errorMessage = err instanceof Error ? err.message : 'Invalid verification code';
+      setLocalError(errorMessage);
+      
+      if (errorMessage.includes('expired')) {
+        notifyError(
+          'Code Expired',
+          'Your verification code has expired. Please request a new one.',
+          {
+            action: {
+              label: 'Resend Code',
+              onClick: () => handleResendVerification()
+            }
+          }
+        );
+      }
     } finally {
       setVerificationLoading(false);
     }
   };
+
+  const handleResendVerification = async () => {
+    if (resendCooldown > 0) return;
+
+    try {
+      setLocalError('');
+      setResendCooldown(60); // 60 second cooldown
+      
+      const response = await fetch('/api/auth/resend-verification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email: registeredEmail }),
+      });
+
+      if (response.ok) {
+        const successMessage = 'Verification code resent! Please check your email.';
+        setSuccess(successMessage);
+        notifyInfo(
+          'Code Resent',
+          'Please check your email for the new verification code.'
+        );
+      } else {
+        const error = await response.json();
+        const errorMessage = error.error || 'Failed to resend verification code';
+        setLocalError(errorMessage);
+        notifyError('Resend Failed', errorMessage);
+        setResendCooldown(0); // Reset cooldown on error
+      }
+    } catch (error) {
+      setLocalError('Failed to resend verification code');
+      setResendCooldown(0); // Reset cooldown on error
+    }
+  };
+
+  const displayError = localError || authError;
+  const isFormDisabled = isLoading || !isOnline;
+
+  // Password strength indicator
+  const getPasswordStrength = (password: string) => {
+    let strength = 0;
+    if (password.length >= 8) strength++;
+    if (/[A-Z]/.test(password)) strength++;
+    if (/[a-z]/.test(password)) strength++;
+    if (/[0-9]/.test(password)) strength++;
+    if (/[^A-Za-z0-9]/.test(password)) strength++;
+    return strength;
+  };
+
+  const passwordValue = form.watch('password');
+  const passwordStrength = passwordValue ? getPasswordStrength(passwordValue) : 0;
 
   return (
     <Card className="w-full max-w-md mx-auto">
@@ -139,20 +275,32 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
         <CardDescription className="text-center">
           Join QuillHaven and start your writing journey
         </CardDescription>
+        
+        {!isOnline && (
+          <div className="flex items-center justify-center space-x-2 text-sm text-orange-600 bg-orange-50 p-2 rounded-md">
+            <WifiOff className="w-4 h-4" />
+            <span>You are currently offline</span>
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         {!showVerification ? (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-              {error && (
-                <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                  {error}
+              {displayError && (
+                <div className="flex items-start space-x-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                  <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="font-medium">Registration Failed</p>
+                    <p>{displayError}</p>
+                  </div>
                 </div>
               )}
 
               {success && (
-                <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
-                  {success}
+                <div className="flex items-start space-x-2 p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
+                  <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                  <p>{success}</p>
                 </div>
               )}
 
@@ -164,7 +312,11 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                     <FormItem>
                       <FormLabel>First Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="John" {...field} />
+                        <Input 
+                          placeholder="John" 
+                          disabled={isFormDisabled}
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -178,7 +330,11 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                     <FormItem>
                       <FormLabel>Last Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="Doe" {...field} />
+                        <Input 
+                          placeholder="Doe" 
+                          disabled={isFormDisabled}
+                          {...field} 
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -196,6 +352,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                       <Input
                         type="email"
                         placeholder="Enter your email"
+                        disabled={isFormDisabled}
                         {...field}
                       />
                     </FormControl>
@@ -211,12 +368,53 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                   <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Create a password"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showPassword ? 'text' : 'password'}
+                          placeholder="Create a password"
+                          disabled={isFormDisabled}
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          disabled={isFormDisabled}
+                        >
+                          {showPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
+                    {passwordValue && (
+                      <div className="mt-2">
+                        <div className="flex space-x-1">
+                          {[1, 2, 3, 4, 5].map((level) => (
+                            <div
+                              key={level}
+                              className={`h-1 flex-1 rounded ${
+                                level <= passwordStrength
+                                  ? passwordStrength <= 2
+                                    ? 'bg-red-500'
+                                    : passwordStrength <= 3
+                                    ? 'bg-yellow-500'
+                                    : 'bg-green-500'
+                                  : 'bg-gray-200'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                          Password strength: {
+                            passwordStrength <= 2 ? 'Weak' :
+                            passwordStrength <= 3 ? 'Medium' : 'Strong'
+                          }
+                        </p>
+                      </div>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}
@@ -229,33 +427,60 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                   <FormItem>
                     <FormLabel>Confirm Password</FormLabel>
                     <FormControl>
-                      <Input
-                        type="password"
-                        placeholder="Confirm your password"
-                        {...field}
-                      />
+                      <div className="relative">
+                        <Input
+                          type={showConfirmPassword ? 'text' : 'password'}
+                          placeholder="Confirm your password"
+                          disabled={isFormDisabled}
+                          {...field}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                          className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                          disabled={isFormDisabled}
+                        >
+                          {showConfirmPassword ? (
+                            <EyeOff className="w-4 h-4" />
+                          ) : (
+                            <Eye className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
-              <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? 'Creating account...' : 'Create account'}
+              <Button type="submit" className="w-full" disabled={isFormDisabled}>
+                {isLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating account...
+                  </>
+                ) : (
+                  <>
+                    {!isOnline && <WifiOff className="w-4 h-4 mr-2" />}
+                    Create account
+                  </>
+                )}
               </Button>
             </form>
           </Form>
         ) : (
           <div className="space-y-4">
-            {error && (
-              <div className="p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
-                {error}
+            {displayError && (
+              <div className="flex items-start space-x-2 p-3 text-sm text-red-600 bg-red-50 border border-red-200 rounded-md">
+                <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <p>{displayError}</p>
               </div>
             )}
 
             {success && (
-              <div className="p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
-                {success}
+              <div className="flex items-start space-x-2 p-3 text-sm text-green-600 bg-green-50 border border-green-200 rounded-md">
+                <CheckCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <p>{success}</p>
               </div>
             )}
 
@@ -281,6 +506,7 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                           placeholder="Enter 6-digit code"
                           maxLength={6}
                           className="text-center text-lg tracking-widest"
+                          disabled={!isOnline}
                           {...field}
                         />
                       </FormControl>
@@ -292,9 +518,16 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={verificationLoading}
+                  disabled={verificationLoading || !isOnline}
                 >
-                  {verificationLoading ? 'Verifying...' : 'Verify Email'}
+                  {verificationLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    'Verify Email'
+                  )}
                 </Button>
               </form>
             </Form>
@@ -304,13 +537,18 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 Didn&apos;t receive the code?{' '}
                 <button
                   type="button"
-                  className="text-blue-600 hover:text-blue-500 hover:underline font-medium"
-                  onClick={() => {
-                    // TODO: Implement resend verification email
-                    alert('Resend functionality coming soon!');
-                  }}
+                  className="text-blue-600 hover:text-blue-500 hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={handleResendVerification}
+                  disabled={resendCooldown > 0 || !isOnline}
                 >
-                  Resend
+                  {resendCooldown > 0 ? (
+                    <>
+                      <Clock className="w-3 h-3 inline mr-1" />
+                      Resend in {resendCooldown}s
+                    </>
+                  ) : (
+                    'Resend'
+                  )}
                 </button>
               </div>
               <div>
@@ -334,7 +572,8 @@ export function RegisterForm({ onSwitchToLogin }: RegisterFormProps) {
                 <button
                   type="button"
                   onClick={onSwitchToLogin}
-                  className="text-blue-600 hover:text-blue-500 hover:underline font-medium"
+                  className="text-blue-600 hover:text-blue-500 hover:underline font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isFormDisabled}
                 >
                   Sign in
                 </button>

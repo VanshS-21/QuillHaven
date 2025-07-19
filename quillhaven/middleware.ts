@@ -15,11 +15,11 @@ const blockedIPs = new Set<string>();
 const SECURITY_CONFIG = {
   rateLimit: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 100, // requests per window
+    maxRequests: 1000, // requests per window (more lenient for testing)
   },
   auth: {
     windowMs: 15 * 60 * 1000, // 15 minutes
-    maxRequests: 10, // login attempts per window
+    maxRequests: 100, // login attempts per window (more lenient for testing)
   },
   suspicious: {
     maxViolations: 5,

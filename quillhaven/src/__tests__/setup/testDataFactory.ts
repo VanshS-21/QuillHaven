@@ -42,7 +42,7 @@ export class TestScenarioFactory {
     const project = {
       id: 'project-1',
       userId: user.id,
-      title: 'The Dragon\'s Quest',
+      title: "The Dragon's Quest",
       description: 'An epic fantasy adventure',
       genre: 'Fantasy',
       targetLength: 80000,
@@ -61,7 +61,7 @@ export class TestScenarioFactory {
           {
             id: 'char-2',
             name: 'Master Eldric',
-            description: 'An ancient wizard and Aria\'s mentor',
+            description: "An ancient wizard and Aria's mentor",
             role: 'supporting',
             relationships: [{ characterId: 'char-1', type: 'student' }],
             developmentArc: 'Guides Aria while facing his own past',
@@ -71,7 +71,8 @@ export class TestScenarioFactory {
           {
             id: 'plot-1',
             title: 'The Ancient Prophecy',
-            description: 'A prophecy foretells of a chosen one who will save the realm',
+            description:
+              'A prophecy foretells of a chosen one who will save the realm',
             status: 'developing',
             relatedCharacters: ['char-1'],
             chapterReferences: ['chapter-1', 'chapter-3'],
@@ -165,7 +166,7 @@ export class TestScenarioFactory {
         lastName: 'Novelist',
         subscriptionTier: 'free',
       },
-    ].map(user => ({
+    ].map((user) => ({
       ...user,
       passwordHash: 'hashed-password',
       isEmailVerified: true,
@@ -233,16 +234,20 @@ export class TestScenarioFactory {
       updatedAt: new Date(),
     }));
 
-    const projects = users.flatMap(user =>
+    const projects = users.flatMap((user) =>
       Array.from({ length: Math.floor(Math.random() * 3) + 1 }, (_, i) => ({
         id: `${user.id}-project-${i + 1}`,
         userId: user.id,
         title: `Project ${i + 1} by ${user.firstName}`,
         description: `A test project for performance testing`,
-        genre: ['Fiction', 'Non-Fiction', 'Poetry', 'Drama'][Math.floor(Math.random() * 4)],
+        genre: ['Fiction', 'Non-Fiction', 'Poetry', 'Drama'][
+          Math.floor(Math.random() * 4)
+        ],
         targetLength: 50000 + Math.floor(Math.random() * 50000),
         currentWordCount: Math.floor(Math.random() * 20000),
-        status: ['draft', 'in-progress', 'completed'][Math.floor(Math.random() * 3)],
+        status: ['draft', 'in-progress', 'completed'][
+          Math.floor(Math.random() * 3)
+        ],
         context: {
           characters: [],
           plotThreads: [],
@@ -254,12 +259,14 @@ export class TestScenarioFactory {
       }))
     );
 
-    const chapters = projects.flatMap(project =>
+    const chapters = projects.flatMap((project) =>
       Array.from({ length: Math.floor(Math.random() * 20) + 5 }, (_, i) => ({
         id: `${project.id}-chapter-${i + 1}`,
         projectId: project.id,
         title: `Chapter ${i + 1}`,
-        content: `This is the content for chapter ${i + 1}. `.repeat(100 + Math.floor(Math.random() * 200)),
+        content: `This is the content for chapter ${i + 1}. `.repeat(
+          100 + Math.floor(Math.random() * 200)
+        ),
         wordCount: 1000 + Math.floor(Math.random() * 3000),
         order: i + 1,
         status: ['draft', 'final', 'generated'][Math.floor(Math.random() * 3)],
@@ -300,10 +307,13 @@ export class TestScenarioFactory {
         name: `Character ${i + 1}`,
         description: `Detailed description for character ${i + 1}. `.repeat(20),
         role: ['protagonist', 'antagonist', 'supporting', 'minor'][i % 4],
-        relationships: Array.from({ length: Math.floor(Math.random() * 5) }, (_, j) => ({
-          characterId: `char-${((i + j + 1) % 25) + 1}`,
-          type: ['friend', 'enemy', 'family', 'mentor', 'rival'][j % 5],
-        })),
+        relationships: Array.from(
+          { length: Math.floor(Math.random() * 5) },
+          (_, j) => ({
+            characterId: `char-${((i + j + 1) % 25) + 1}`,
+            type: ['friend', 'enemy', 'family', 'mentor', 'rival'][j % 5],
+          })
+        ),
         developmentArc: `Complex development arc for character ${i + 1}`,
       })),
       plotThreads: Array.from({ length: 15 }, (_, i) => ({
@@ -311,11 +321,13 @@ export class TestScenarioFactory {
         title: `Plot Thread ${i + 1}`,
         description: `Complex plot thread description ${i + 1}. `.repeat(30),
         status: ['introduced', 'developing', 'climax', 'resolved'][i % 4],
-        relatedCharacters: Array.from({ length: Math.floor(Math.random() * 5) + 1 }, (_, j) => 
-          `char-${((i + j) % 25) + 1}`
+        relatedCharacters: Array.from(
+          { length: Math.floor(Math.random() * 5) + 1 },
+          (_, j) => `char-${((i + j) % 25) + 1}`
         ),
-        chapterReferences: Array.from({ length: Math.floor(Math.random() * 10) + 1 }, (_, j) => 
-          `chapter-${j + 1}`
+        chapterReferences: Array.from(
+          { length: Math.floor(Math.random() * 10) + 1 },
+          (_, j) => `chapter-${j + 1}`
         ),
       })),
       worldElements: Array.from({ length: 30 }, (_, i) => ({
@@ -324,8 +336,9 @@ export class TestScenarioFactory {
         name: `World Element ${i + 1}`,
         description: `Detailed world building element ${i + 1}. `.repeat(25),
         significance: `Critical significance for element ${i + 1}`,
-        relatedElements: Array.from({ length: Math.floor(Math.random() * 3) }, (_, j) => 
-          `world-${((i + j + 1) % 30) + 1}`
+        relatedElements: Array.from(
+          { length: Math.floor(Math.random() * 3) },
+          (_, j) => `world-${((i + j + 1) % 30) + 1}`
         ),
       })),
       timeline: Array.from({ length: 20 }, (_, i) => ({
@@ -360,20 +373,24 @@ export class TestScenarioFactory {
       wordCount: 2000 + Math.floor(Math.random() * 2000),
       order: i + 1,
       status: i < 20 ? 'final' : 'draft',
-      generationParams: i > 15 ? {
-        prompt: `Generate chapter ${i + 1}`,
-        length: 2500,
-        tone: 'epic',
-        style: 'fantasy',
-        contextIds: [`char-${(i % 25) + 1}`, `plot-${(i % 15) + 1}`],
-      } : null,
+      generationParams:
+        i > 15
+          ? {
+              prompt: `Generate chapter ${i + 1}`,
+              length: 2500,
+              tone: 'epic',
+              style: 'fantasy',
+              contextIds: [`char-${(i % 25) + 1}`, `plot-${(i % 15) + 1}`],
+            }
+          : null,
       createdAt: new Date(`2024-01-${Math.floor(i / 2) + 1}`),
       updatedAt: new Date(),
     }));
 
     return {
       name: 'Complex Context Scenario',
-      description: 'Rich, complex project with extensive world-building and character development',
+      description:
+        'Rich, complex project with extensive world-building and character development',
       users: [user],
       projects: [project],
       chapters,
@@ -415,7 +432,7 @@ export class TestScenarioFactory {
             description: null,
             role: 'invalid-role',
             relationships: [
-              { characterId: 'non-existent-char', type: 'invalid-type' }
+              { characterId: 'non-existent-char', type: 'invalid-type' },
             ],
             developmentArc: '',
           },
@@ -469,6 +486,6 @@ export class TestScenarioFactory {
    */
   static getScenario(name: string): TestScenario | null {
     const scenarios = this.getAllScenarios();
-    return scenarios.find(scenario => scenario.name === name) || null;
+    return scenarios.find((scenario) => scenario.name === name) || null;
   }
 }

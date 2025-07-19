@@ -17,14 +17,28 @@ export function withAuth<T extends unknown[]>(
       // Get token from Authorization header
       const authHeader = req.headers.get('authorization');
 
-      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      if (!authHeader) {
         return NextResponse.json(
           { error: 'Authentication required' },
           { status: 401 }
         );
       }
 
-      const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      // Handle Bearer token format
+      let token: string;
+      if (authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7); // Remove 'Bearer ' prefix
+      } else {
+        // Also accept token without Bearer prefix for backward compatibility
+        token = authHeader;
+      }
+
+      if (!token || token.trim() === '') {
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
 
       // Verify token and get user
       const user = await getUserFromToken(token);
@@ -365,9 +379,17 @@ export function withValidation<T>(
       const contentType = req.headers.get('content-type') || '';
 
       if (contentType.includes('application/json')) {
-        requestData = await req.json();
+        // Clone the request to avoid "Body is unusable" errors
+        const clonedReq = req.clone();
+        try {
+          requestData = await clonedReq.json();
+        } catch (jsonError) {
+          // Handle JSON parsing errors specifically
+          throw new Error('Invalid JSON in request body');
+        }
       } else if (contentType.includes('application/x-www-form-urlencoded')) {
-        const formData = await req.formData();
+        const clonedReq = req.clone();
+        const formData = await clonedReq.formData();
         requestData = Object.fromEntries(formData.entries());
       } else {
         requestData = {};
@@ -379,7 +401,7 @@ export function withValidation<T>(
       if (!validation.isValid) {
         return NextResponse.json(
           {
-            error: 'Validation failed',
+            error: validation.errors.join(', '), // Use the actual validation errors
             details: validation.errors,
           },
           { status: 400 }
@@ -390,6 +412,16 @@ export function withValidation<T>(
       return handler(req, validation.data!);
     } catch (error) {
       console.error('Validation middleware error:', error);
+      
+      // Check if it's a JSON parsing error
+      if (error instanceof SyntaxError || 
+          (error instanceof Error && error.message.includes('Invalid JSON'))) {
+        return NextResponse.json(
+          { error: 'Invalid JSON in request body' },
+          { status: 400 }
+        );
+      }
+      
       return NextResponse.json(
         { error: 'Invalid request data' },
         { status: 400 }

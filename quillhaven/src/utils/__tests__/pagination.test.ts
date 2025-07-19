@@ -229,10 +229,10 @@ describe('Pagination Utils', () => {
   describe('performance with large datasets', () => {
     it('should handle large pagination calculations efficiently', () => {
       const startTime = Date.now();
-      
+
       // Test with very large numbers
       const result = calculatePagination(50000, 100, 10000000);
-      
+
       const endTime = Date.now();
       const executionTime = endTime - startTime;
 
@@ -244,12 +244,12 @@ describe('Pagination Utils', () => {
 
     it('should handle multiple rapid calculations', () => {
       const startTime = Date.now();
-      
+
       // Perform 1000 calculations
       for (let i = 1; i <= 1000; i++) {
         calculatePagination(i, 25, 50000);
       }
-      
+
       const endTime = Date.now();
       const executionTime = endTime - startTime;
 

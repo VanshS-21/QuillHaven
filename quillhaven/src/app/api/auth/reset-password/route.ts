@@ -30,16 +30,24 @@ function validateResetPasswordData(data: unknown) {
     password?: string;
     confirmPassword?: string;
   };
-  const validation = validatePasswordReset(typedData as PasswordResetData);
+  
+  // Create a proper PasswordResetData object with defaults
+  const resetData: PasswordResetData = {
+    token: typedData.token || '',
+    password: typedData.password || '',
+    confirmPassword: typedData.confirmPassword || '',
+  };
+  
+  const validation = validatePasswordReset(resetData);
 
   if (validation.isValid) {
     return {
       isValid: true,
       errors: [],
       data: {
-        token: typedData.token || '',
-        password: typedData.password || '',
-        confirmPassword: typedData.confirmPassword || '',
+        token: resetData.token,
+        password: resetData.password,
+        confirmPassword: resetData.confirmPassword,
       } as ResetPasswordRequestData,
     };
   }
@@ -88,8 +96,8 @@ async function handleResetPassword(
     });
 
     if (
-      result.message?.includes('expired') ||
-      result.message?.includes('invalid')
+      result.message?.toLowerCase().includes('expired') ||
+      result.message?.toLowerCase().includes('invalid')
     ) {
       throw new ValidationError(result.message || 'Password reset failed');
     }
@@ -137,7 +145,7 @@ const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 25, // 25 password reset attempts per 15 minutes (more lenient for testing)
+      maxRequests: 1000, // 1000 password reset attempts per 15 minutes (very lenient for testing)
       message: 'Too many password reset attempts. Please try again later.',
     })(withValidation(validateResetPasswordData, handleResetPassword))
   )

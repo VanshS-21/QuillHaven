@@ -39,7 +39,10 @@ export function calculatePagination(
   };
 }
 
-export function createPaginationQuery(page: number, limit: number): PaginationQuery {
+export function createPaginationQuery(
+  page: number,
+  limit: number
+): PaginationQuery {
   const safePage = Math.max(1, Math.floor(Number(page) || 1));
   const safeLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 10)));
 

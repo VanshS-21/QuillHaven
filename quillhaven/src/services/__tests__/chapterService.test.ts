@@ -70,8 +70,9 @@ describe('ChapterService', () => {
     });
 
     it('should calculate word count correctly', async () => {
-      const longContent = 'This is a longer chapter with more words to count accurately.';
-      
+      const longContent =
+        'This is a longer chapter with more words to count accurately.';
+
       prismaMock.chapter.count.mockResolvedValue(0);
       prismaMock.chapter.create.mockResolvedValue({} as Chapter);
 
@@ -91,7 +92,7 @@ describe('ChapterService', () => {
   describe('generateChapter', () => {
     const mockGenerationRequest = {
       projectId: 'project-1',
-      prompt: 'Write about the hero\'s journey',
+      prompt: "Write about the hero's journey",
       parameters: {
         length: 2000,
         tone: 'adventurous',
@@ -165,7 +166,9 @@ describe('ChapterService', () => {
       mockAIService.generateChapter.mockResolvedValue(mockAIResponse);
       prismaMock.chapter.create.mockResolvedValue(mockChapter);
 
-      const result = await chapterService.generateChapter(mockGenerationRequest);
+      const result = await chapterService.generateChapter(
+        mockGenerationRequest
+      );
 
       expect(result).toEqual(mockChapter);
       expect(mockAIService.generateChapter).toHaveBeenCalledWith({
@@ -186,7 +189,9 @@ describe('ChapterService', () => {
       ];
 
       prismaMock.project.findUnique.mockResolvedValue(mockProject);
-      prismaMock.chapter.findMany.mockResolvedValue(previousChapters as Chapter[]);
+      prismaMock.chapter.findMany.mockResolvedValue(
+        previousChapters as Chapter[]
+      );
       prismaMock.chapter.count.mockResolvedValue(1);
       mockAIService.generateChapter.mockResolvedValue({
         content: 'Generated content',
@@ -217,7 +222,9 @@ describe('ChapterService', () => {
     it('should handle AI service errors', async () => {
       prismaMock.project.findUnique.mockResolvedValue(mockProject);
       prismaMock.chapter.findMany.mockResolvedValue([]);
-      mockAIService.generateChapter.mockRejectedValue(new Error('AI service error'));
+      mockAIService.generateChapter.mockRejectedValue(
+        new Error('AI service error')
+      );
 
       await expect(
         chapterService.generateChapter(mockGenerationRequest)
@@ -333,7 +340,9 @@ describe('ChapterService', () => {
       ];
 
       prismaMock.chapter.findUnique.mockResolvedValue(chapterToDelete);
-      prismaMock.chapter.findMany.mockResolvedValue(remainingChapters as Chapter[]);
+      prismaMock.chapter.findMany.mockResolvedValue(
+        remainingChapters as Chapter[]
+      );
       prismaMock.chapterVersion.deleteMany.mockResolvedValue({ count: 2 });
       prismaMock.chapter.delete.mockResolvedValue(chapterToDelete);
       prismaMock.chapter.updateMany.mockResolvedValue({ count: 2 });
@@ -341,7 +350,7 @@ describe('ChapterService', () => {
       const result = await chapterService.deleteChapter(chapterId);
 
       expect(result).toEqual({ message: 'Chapter deleted successfully' });
-      
+
       // Verify deletion order
       expect(prismaMock.chapterVersion.deleteMany).toHaveBeenCalledWith({
         where: { chapterId },
@@ -349,7 +358,7 @@ describe('ChapterService', () => {
       expect(prismaMock.chapter.delete).toHaveBeenCalledWith({
         where: { id: chapterId },
       });
-      
+
       // Verify reordering
       expect(prismaMock.chapter.updateMany).toHaveBeenCalledWith({
         where: {
@@ -382,13 +391,15 @@ describe('ChapterService', () => {
         { id: 'chapter-3', order: 3 },
       ];
 
-      prismaMock.chapter.findMany.mockResolvedValue(existingChapters as Chapter[]);
+      prismaMock.chapter.findMany.mockResolvedValue(
+        existingChapters as Chapter[]
+      );
       prismaMock.chapter.update.mockResolvedValue({} as Chapter);
 
       const result = await chapterService.reorderChapters(projectId, newOrder);
 
       expect(result).toEqual({ message: 'Chapters reordered successfully' });
-      
+
       // Verify each chapter gets updated with correct order
       expect(prismaMock.chapter.update).toHaveBeenCalledWith({
         where: { id: 'chapter-3' },
@@ -410,10 +421,16 @@ describe('ChapterService', () => {
         { id: 'chapter-2', order: 2 },
       ];
 
-      prismaMock.chapter.findMany.mockResolvedValue(existingChapters as Chapter[]);
+      prismaMock.chapter.findMany.mockResolvedValue(
+        existingChapters as Chapter[]
+      );
 
       await expect(
-        chapterService.reorderChapters(projectId, ['chapter-1', 'chapter-2', 'chapter-3'])
+        chapterService.reorderChapters(projectId, [
+          'chapter-1',
+          'chapter-2',
+          'chapter-3',
+        ])
       ).rejects.toThrow('Invalid chapter order: some chapters do not exist');
     });
   });
@@ -483,7 +500,9 @@ describe('ChapterService', () => {
         updatedAt: new Date(),
       };
 
-      prismaMock.chapterVersion.findUnique.mockResolvedValue(mockVersion as any);
+      prismaMock.chapterVersion.findUnique.mockResolvedValue(
+        mockVersion as any
+      );
       prismaMock.chapter.findUnique.mockResolvedValue(currentChapter);
       prismaMock.chapter.update.mockResolvedValue({
         ...currentChapter,
@@ -493,7 +512,10 @@ describe('ChapterService', () => {
         status: 'restored',
       });
 
-      const result = await chapterService.restoreChapterVersion(chapterId, versionId);
+      const result = await chapterService.restoreChapterVersion(
+        chapterId,
+        versionId
+      );
 
       expect(prismaMock.chapter.update).toHaveBeenCalledWith({
         where: { id: chapterId },

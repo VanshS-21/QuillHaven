@@ -138,7 +138,7 @@ function handleAppError(
   duration: number
 ): NextResponse {
   const errorResponse: ErrorResponse = {
-    error: error.constructor.name,
+    error: error.message, // Use the actual error message instead of constructor name
     message: error.message,
     statusCode: error.statusCode,
     timestamp: new Date().toISOString(),
@@ -279,11 +279,11 @@ export function handleDatabaseError(error: unknown): AppError {
       case 'P2014':
         return new ValidationError('Invalid ID provided');
       default:
-        return new AppError('Database operation failed', 500, false);
+        return new AppError('Internal server error', 500, false);
     }
   }
 
-  return new AppError('Database operation failed', 500, false);
+  return new AppError('Internal server error', 500, false);
 }
 
 /**

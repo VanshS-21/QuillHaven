@@ -1,6 +1,13 @@
 import { NextRequest } from 'next/server';
-import { GET as getProjectsHandler, POST as createProjectHandler } from '@/app/api/projects/route';
-import { GET as getProjectHandler, PUT as updateProjectHandler, DELETE as deleteProjectHandler } from '@/app/api/projects/[id]/route';
+import {
+  GET as getProjectsHandler,
+  POST as createProjectHandler,
+} from '@/app/api/projects/route';
+import {
+  GET as getProjectHandler,
+  PUT as updateProjectHandler,
+  DELETE as deleteProjectHandler,
+} from '@/app/api/projects/[id]/route';
 import { prismaMock } from '../../../__mocks__/prisma';
 import jwt from 'jsonwebtoken';
 
@@ -38,20 +45,26 @@ describe('Projects API Integration Tests', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     // Mock JWT verification to return valid user
-    mockJwt.verify.mockReturnValue({ userId: mockUser.id, email: mockUser.email });
+    mockJwt.verify.mockReturnValue({
+      userId: mockUser.id,
+      email: mockUser.email,
+    });
   });
 
   describe('GET /api/projects', () => {
     it('should return user projects with pagination', async () => {
       const mockProjects = [mockProject];
-      
+
       prismaMock.project.findMany.mockResolvedValue(mockProjects);
       prismaMock.project.count.mockResolvedValue(1);
 
-      const request = new NextRequest('http://localhost:3000/api/projects?page=1&limit=10', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects?page=1&limit=10',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
       const response = await getProjectsHandler(request);
       const data = await response.json();
@@ -66,14 +79,17 @@ describe('Projects API Integration Tests', () => {
 
     it('should filter projects by status', async () => {
       const activeProjects = [{ ...mockProject, status: 'in-progress' }];
-      
+
       prismaMock.project.findMany.mockResolvedValue(activeProjects);
       prismaMock.project.count.mockResolvedValue(1);
 
-      const request = new NextRequest('http://localhost:3000/api/projects?status=in-progress', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects?status=in-progress',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
       const response = await getProjectsHandler(request);
       const data = await response.json();
@@ -91,10 +107,13 @@ describe('Projects API Integration Tests', () => {
       prismaMock.project.findMany.mockResolvedValue([mockProject]);
       prismaMock.project.count.mockResolvedValue(1);
 
-      const request = new NextRequest('http://localhost:3000/api/projects?search=Novel', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects?search=Novel',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
       const response = await getProjectsHandler(request);
 
@@ -132,7 +151,7 @@ describe('Projects API Integration Tests', () => {
 
       const request = new NextRequest('http://localhost:3000/api/projects', {
         method: 'GET',
-        headers: { 'Authorization': 'Bearer invalid-token' },
+        headers: { Authorization: 'Bearer invalid-token' },
       });
 
       const response = await getProjectsHandler(request);
@@ -174,7 +193,7 @@ describe('Projects API Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify(validProjectData),
         headers: {
-          'Authorization': 'Bearer valid-token',
+          Authorization: 'Bearer valid-token',
           'Content-Type': 'application/json',
         },
       });
@@ -199,7 +218,7 @@ describe('Projects API Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify(invalidData),
         headers: {
-          'Authorization': 'Bearer valid-token',
+          Authorization: 'Bearer valid-token',
           'Content-Type': 'application/json',
         },
       });
@@ -218,7 +237,7 @@ describe('Projects API Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify(validProjectData),
         headers: {
-          'Authorization': 'Bearer valid-token',
+          Authorization: 'Bearer valid-token',
           'Content-Type': 'application/json',
         },
       });
@@ -235,12 +254,17 @@ describe('Projects API Integration Tests', () => {
     it('should return project details for owner', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
-      const response = await getProjectHandler(request, { params: { id: 'project-1' } });
+      const response = await getProjectHandler(request, {
+        params: { id: 'project-1' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -254,12 +278,17 @@ describe('Projects API Integration Tests', () => {
     it('should return 404 for non-existent project', async () => {
       prismaMock.project.findFirst.mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/nonexistent', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/nonexistent',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
-      const response = await getProjectHandler(request, { params: { id: 'nonexistent' } });
+      const response = await getProjectHandler(request, {
+        params: { id: 'nonexistent' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -270,12 +299,17 @@ describe('Projects API Integration Tests', () => {
       const otherUserProject = { ...mockProject, userId: 'other-user' };
       prismaMock.project.findFirst.mockResolvedValue(null); // findFirst with userId filter returns null
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
-      const response = await getProjectHandler(request, { params: { id: 'project-1' } });
+      const response = await getProjectHandler(request, {
+        params: { id: 'project-1' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -292,20 +326,25 @@ describe('Projects API Integration Tests', () => {
 
     it('should update project successfully', async () => {
       const updatedProject = { ...mockProject, ...updateData };
-      
+
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.project.update.mockResolvedValue(updatedProject);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'PUT',
-        body: JSON.stringify(updateData),
-        headers: {
-          'Authorization': 'Bearer valid-token',
-          'Content-Type': 'application/json',
-        },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'PUT',
+          body: JSON.stringify(updateData),
+          headers: {
+            Authorization: 'Bearer valid-token',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      const response = await updateProjectHandler(request, { params: { id: 'project-1' } });
+      const response = await updateProjectHandler(request, {
+        params: { id: 'project-1' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(200);
@@ -320,16 +359,21 @@ describe('Projects API Integration Tests', () => {
     it('should return 404 for non-existent project', async () => {
       prismaMock.project.findFirst.mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/nonexistent', {
-        method: 'PUT',
-        body: JSON.stringify(updateData),
-        headers: {
-          'Authorization': 'Bearer valid-token',
-          'Content-Type': 'application/json',
-        },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/nonexistent',
+        {
+          method: 'PUT',
+          body: JSON.stringify(updateData),
+          headers: {
+            Authorization: 'Bearer valid-token',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      const response = await updateProjectHandler(request, { params: { id: 'nonexistent' } });
+      const response = await updateProjectHandler(request, {
+        params: { id: 'nonexistent' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -344,16 +388,21 @@ describe('Projects API Integration Tests', () => {
 
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'PUT',
-        body: JSON.stringify(invalidUpdateData),
-        headers: {
-          'Authorization': 'Bearer valid-token',
-          'Content-Type': 'application/json',
-        },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'PUT',
+          body: JSON.stringify(invalidUpdateData),
+          headers: {
+            Authorization: 'Bearer valid-token',
+            'Content-Type': 'application/json',
+          },
+        }
+      );
 
-      const response = await updateProjectHandler(request, { params: { id: 'project-1' } });
+      const response = await updateProjectHandler(request, {
+        params: { id: 'project-1' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(400);
@@ -367,17 +416,22 @@ describe('Projects API Integration Tests', () => {
       prismaMock.chapter.deleteMany.mockResolvedValue({ count: 5 });
       prismaMock.project.delete.mockResolvedValue(mockProject);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
-      const response = await deleteProjectHandler(request, { params: { id: 'project-1' } });
+      const response = await deleteProjectHandler(request, {
+        params: { id: 'project-1' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(200);
       expect(data.message).toContain('Project deleted successfully');
-      
+
       // Verify deletion order
       expect(prismaMock.chapter.deleteMany).toHaveBeenCalledWith({
         where: { projectId: 'project-1' },
@@ -390,12 +444,17 @@ describe('Projects API Integration Tests', () => {
     it('should return 404 for non-existent project', async () => {
       prismaMock.project.findFirst.mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/projects/nonexistent', {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/nonexistent',
+        {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
-      const response = await deleteProjectHandler(request, { params: { id: 'nonexistent' } });
+      const response = await deleteProjectHandler(request, {
+        params: { id: 'nonexistent' },
+      });
       const data = await response.json();
 
       expect(response.status).toBe(404);
@@ -404,14 +463,21 @@ describe('Projects API Integration Tests', () => {
 
     it('should handle deletion errors gracefully', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      prismaMock.chapter.deleteMany.mockRejectedValue(new Error('Deletion failed'));
+      prismaMock.chapter.deleteMany.mockRejectedValue(
+        new Error('Deletion failed')
+      );
 
-      const request = new NextRequest('http://localhost:3000/api/projects/project-1', {
-        method: 'DELETE',
-        headers: { 'Authorization': 'Bearer valid-token' },
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects/project-1',
+        {
+          method: 'DELETE',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
+
+      const response = await deleteProjectHandler(request, {
+        params: { id: 'project-1' },
       });
-
-      const response = await deleteProjectHandler(request, { params: { id: 'project-1' } });
       const data = await response.json();
 
       expect(response.status).toBe(500);
@@ -424,11 +490,13 @@ describe('Projects API Integration Tests', () => {
       prismaMock.project.findMany.mockResolvedValue([mockProject]);
       prismaMock.project.count.mockResolvedValue(1);
 
-      const requests = Array.from({ length: 10 }, () =>
-        new NextRequest('http://localhost:3000/api/projects', {
-          method: 'GET',
-          headers: { 'Authorization': 'Bearer valid-token' },
-        })
+      const requests = Array.from(
+        { length: 10 },
+        () =>
+          new NextRequest('http://localhost:3000/api/projects', {
+            method: 'GET',
+            headers: { Authorization: 'Bearer valid-token' },
+          })
       );
 
       const startTime = Date.now();
@@ -448,13 +516,18 @@ describe('Projects API Integration Tests', () => {
         title: `Project ${i}`,
       }));
 
-      prismaMock.project.findMany.mockResolvedValue(largeProjectList.slice(0, 50)); // Paginated
+      prismaMock.project.findMany.mockResolvedValue(
+        largeProjectList.slice(0, 50)
+      ); // Paginated
       prismaMock.project.count.mockResolvedValue(1000);
 
-      const request = new NextRequest('http://localhost:3000/api/projects?limit=50', {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        'http://localhost:3000/api/projects?limit=50',
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
       const startTime = Date.now();
       const response = await getProjectsHandler(request);
@@ -468,14 +541,17 @@ describe('Projects API Integration Tests', () => {
   describe('Security tests', () => {
     it('should prevent SQL injection in search queries', async () => {
       const maliciousSearch = "'; DROP TABLE projects; --";
-      
+
       prismaMock.project.findMany.mockResolvedValue([]);
       prismaMock.project.count.mockResolvedValue(0);
 
-      const request = new NextRequest(`http://localhost:3000/api/projects?search=${encodeURIComponent(maliciousSearch)}`, {
-        method: 'GET',
-        headers: { 'Authorization': 'Bearer valid-token' },
-      });
+      const request = new NextRequest(
+        `http://localhost:3000/api/projects?search=${encodeURIComponent(maliciousSearch)}`,
+        {
+          method: 'GET',
+          headers: { Authorization: 'Bearer valid-token' },
+        }
+      );
 
       const response = await getProjectsHandler(request);
 
@@ -511,7 +587,12 @@ describe('Projects API Integration Tests', () => {
         targetLength: 80000,
         currentWordCount: 0,
         status: 'draft',
-        context: { characters: [], plotThreads: [], worldBuilding: [], timeline: [] },
+        context: {
+          characters: [],
+          plotThreads: [],
+          worldBuilding: [],
+          timeline: [],
+        },
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -522,7 +603,7 @@ describe('Projects API Integration Tests', () => {
         method: 'POST',
         body: JSON.stringify(maliciousData),
         headers: {
-          'Authorization': 'Bearer valid-token',
+          Authorization: 'Bearer valid-token',
           'Content-Type': 'application/json',
         },
       });
@@ -538,14 +619,17 @@ describe('Projects API Integration Tests', () => {
 
     it('should enforce user isolation', async () => {
       // Mock different user token
-      mockJwt.verify.mockReturnValue({ userId: 'other-user', email: 'other@example.com' });
+      mockJwt.verify.mockReturnValue({
+        userId: 'other-user',
+        email: 'other@example.com',
+      });
 
       prismaMock.project.findMany.mockResolvedValue([]);
       prismaMock.project.count.mockResolvedValue(0);
 
       const request = new NextRequest('http://localhost:3000/api/projects', {
         method: 'GET',
-        headers: { 'Authorization': 'Bearer other-user-token' },
+        headers: { Authorization: 'Bearer other-user-token' },
       });
 
       const response = await getProjectsHandler(request);
@@ -570,7 +654,7 @@ describe('Projects API Integration Tests', () => {
       for (const authHeader of invalidAuthHeaders) {
         const request = new NextRequest('http://localhost:3000/api/projects', {
           method: 'GET',
-          headers: authHeader ? { 'Authorization': authHeader } : {},
+          headers: authHeader ? { Authorization: authHeader } : {},
         });
 
         const response = await getProjectsHandler(request);

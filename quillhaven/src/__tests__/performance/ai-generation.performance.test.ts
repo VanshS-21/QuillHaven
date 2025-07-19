@@ -2,7 +2,10 @@ import { AIService } from '@/services/aiService';
 import { ExportService } from '@/services/exportService';
 import { ChapterGenerationRequest, ProjectContext } from '@/types/ai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { createMockProjectContext, setupTestEnvironment } from '../setup/testEnvironment';
+import {
+  createMockProjectContext,
+  setupTestEnvironment,
+} from '../setup/testEnvironment';
 
 // Mock the Google Generative AI
 jest.mock('@google/generative-ai');
@@ -23,9 +26,9 @@ describe('AI Generation Performance Tests', () => {
       getGenerativeModel: jest.fn().mockReturnValue(mockModel),
     } as any;
 
-    (GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>).mockImplementation(
-      () => mockGenAI
-    );
+    (
+      GoogleGenerativeAI as jest.MockedClass<typeof GoogleGenerativeAI>
+    ).mockImplementation(() => mockGenAI);
 
     aiService = new AIService();
     exportService = new ExportService();
@@ -40,7 +43,6 @@ describe('AI Generation Performance Tests', () => {
   });
 
   describe('Chapter Generation Performance', () => {
-
     it('should generate 2000-word chapter within 60 seconds', async () => {
       const mockResponse = {
         response: {
@@ -51,7 +53,7 @@ describe('AI Generation Performance Tests', () => {
       mockModel.generateContent.mockResolvedValue(mockResponse);
 
       const generationRequest: ChapterGenerationRequest = {
-        prompt: 'Write a chapter about the hero\'s journey',
+        prompt: "Write a chapter about the hero's journey",
         projectContext: createMockProjectContext('medium'),
         previousChapters: ['Previous chapter content...'],
         parameters: {
@@ -134,7 +136,7 @@ describe('AI Generation Performance Tests', () => {
       };
 
       const startTime = Date.now();
-      
+
       // Generate 5 chapters concurrently
       const promises = Array.from({ length: 5 }, () =>
         aiService.generateChapter(generationRequest)
@@ -163,8 +165,9 @@ describe('AI Generation Performance Tests', () => {
       mockModel.generateContent.mockResolvedValue(mockResponse);
 
       const largeContext = createMockProjectContext('large');
-      const largePreviousChapters = Array.from({ length: 20 }, (_, i) =>
-        `Chapter ${i + 1} content `.repeat(1000) // ~5000 words each
+      const largePreviousChapters = Array.from(
+        { length: 20 },
+        (_, i) => `Chapter ${i + 1} content `.repeat(1000) // ~5000 words each
       );
 
       const generationRequest: ChapterGenerationRequest = {
@@ -175,8 +178,10 @@ describe('AI Generation Performance Tests', () => {
           length: 3000,
           tone: 'epic',
           style: 'fantasy',
-          focusCharacters: largeContext.characters.slice(0, 10).map(c => c.id),
-          plotPoints: largeContext.plotThreads.slice(0, 5).map(p => p.id),
+          focusCharacters: largeContext.characters
+            .slice(0, 10)
+            .map((c) => c.id),
+          plotPoints: largeContext.plotThreads.slice(0, 5).map((p) => p.id),
         },
       };
 
@@ -231,16 +236,18 @@ describe('AI Generation Performance Tests', () => {
 
   describe('Context Analysis Performance', () => {
     it('should analyze large content quickly', async () => {
-      const largeContent = 'This is a story with many characters and plot points. '.repeat(2000); // ~20,000 words
+      const largeContent =
+        'This is a story with many characters and plot points. '.repeat(2000); // ~20,000 words
 
       const mockResponse = {
         response: {
-          text: () => JSON.stringify({
-            characters: ['Hero', 'Villain', 'Mentor'],
-            locations: ['Castle', 'Forest', 'Village'],
-            plotPoints: ['Quest begins', 'Conflict arises', 'Resolution'],
-            themes: ['Good vs Evil', 'Coming of age'],
-          }),
+          text: () =>
+            JSON.stringify({
+              characters: ['Hero', 'Villain', 'Mentor'],
+              locations: ['Castle', 'Forest', 'Village'],
+              plotPoints: ['Quest begins', 'Conflict arises', 'Resolution'],
+              themes: ['Good vs Evil', 'Coming of age'],
+            }),
         },
       };
 
@@ -261,12 +268,13 @@ describe('AI Generation Performance Tests', () => {
     it('should handle multiple concurrent analyses', async () => {
       const mockResponse = {
         response: {
-          text: () => JSON.stringify({
-            characters: ['Character'],
-            locations: ['Location'],
-            plotPoints: ['Plot point'],
-            themes: ['Theme'],
-          }),
+          text: () =>
+            JSON.stringify({
+              characters: ['Character'],
+              locations: ['Location'],
+              plotPoints: ['Plot point'],
+              themes: ['Theme'],
+            }),
         },
       };
 
@@ -278,7 +286,7 @@ describe('AI Generation Performance Tests', () => {
 
       const startTime = Date.now();
       const results = await Promise.all(
-        contents.map(content => aiService.analyzeContext(content))
+        contents.map((content) => aiService.analyzeContext(content))
       );
       const endTime = Date.now();
 
@@ -286,7 +294,7 @@ describe('AI Generation Performance Tests', () => {
 
       expect(executionTime).toBeLessThan(60000); // 60 seconds for 10 analyses
       expect(results).toHaveLength(10);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.characters).toBeDefined();
         expect(result.locations).toBeDefined();
       });
@@ -296,27 +304,34 @@ describe('AI Generation Performance Tests', () => {
   describe('Consistency Check Performance', () => {
     it('should check consistency quickly for large projects', async () => {
       const largeContext = createMockProjectContext('large');
-      const longContent = 'Chapter content with many details and character interactions. '.repeat(1000);
+      const longContent =
+        'Chapter content with many details and character interactions. '.repeat(
+          1000
+        );
 
       const mockResponse = {
         response: {
-          text: () => JSON.stringify({
-            issues: [
-              {
-                type: 'character_inconsistency',
-                description: 'Minor inconsistency found',
-                severity: 'low',
-                suggestions: ['Review character description'],
-              },
-            ],
-          }),
+          text: () =>
+            JSON.stringify({
+              issues: [
+                {
+                  type: 'character_inconsistency',
+                  description: 'Minor inconsistency found',
+                  severity: 'low',
+                  suggestions: ['Review character description'],
+                },
+              ],
+            }),
         },
       };
 
       mockModel.generateContent.mockResolvedValue(mockResponse);
 
       const startTime = Date.now();
-      const result = await aiService.checkConsistency(largeContext, longContent);
+      const result = await aiService.checkConsistency(
+        largeContext,
+        longContent
+      );
       const endTime = Date.now();
 
       const executionTime = endTime - startTime;
@@ -399,7 +414,7 @@ describe('AI Generation Performance Tests', () => {
       };
 
       const startTime = Date.now();
-      
+
       // Try multiple generations, some will fail, some will succeed
       const promises = Array.from({ length: 10 }, () =>
         aiService.generateChapter(generationRequest).catch(() => null)
@@ -409,7 +424,7 @@ describe('AI Generation Performance Tests', () => {
       const endTime = Date.now();
 
       const executionTime = endTime - startTime;
-      const successfulResults = results.filter(r => r !== null);
+      const successfulResults = results.filter((r) => r !== null);
 
       expect(executionTime).toBeLessThan(120000); // 2 minutes
       expect(successfulResults.length).toBeGreaterThan(0);
@@ -444,14 +459,14 @@ describe('AI Generation Performance Tests', () => {
 
       for (const load of loadLevels) {
         const startTime = Date.now();
-        
+
         const promises = Array.from({ length: load }, () =>
           aiService.generateChapter(generationRequest)
         );
 
         await Promise.all(promises);
         const endTime = Date.now();
-        
+
         const executionTime = endTime - startTime;
         results.push(executionTime);
       }
@@ -460,7 +475,7 @@ describe('AI Generation Performance Tests', () => {
       for (let i = 1; i < results.length; i++) {
         const scaleFactor = loadLevels[i] / loadLevels[i - 1];
         const timeFactor = results[i] / Math.max(results[i - 1], 1); // Avoid division by zero
-        
+
         // Time increase should not be more than 3x the scale factor
         // Skip if previous result was too fast to measure accurately
         if (results[i - 1] > 10) {

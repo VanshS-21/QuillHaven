@@ -2,7 +2,12 @@ import { ContextService } from '../contextService';
 import { prismaMock } from '../../../__mocks__/prisma';
 import { AIService } from '../aiService';
 import { Project } from '@prisma/client';
-import { ProjectContext, Character, PlotThread, WorldBuildingElement } from '@/types/ai';
+import {
+  ProjectContext,
+  Character,
+  PlotThread,
+  WorldBuildingElement,
+} from '@/types/ai';
 
 // Mock AI Service
 jest.mock('../aiService');
@@ -88,7 +93,11 @@ describe('ContextService', () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.project.update.mockResolvedValue(updatedProject);
 
-      const result = await contextService.addCharacter('project-1', 'user-1', newCharacter);
+      const result = await contextService.addCharacter(
+        'project-1',
+        'user-1',
+        newCharacter
+      );
 
       expect(result.name).toBe(newCharacter.name);
       expect(result.id).toBeDefined();
@@ -167,7 +176,12 @@ describe('ContextService', () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
       await expect(
-        contextService.updateCharacter('project-1', 'user-1', 'nonexistent', updateData)
+        contextService.updateCharacter(
+          'project-1',
+          'user-1',
+          'nonexistent',
+          updateData
+        )
       ).rejects.toThrow('Character not found');
     });
   });
@@ -256,7 +270,11 @@ describe('ContextService', () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.project.update.mockResolvedValue(updatedProject);
 
-      const result = await contextService.addPlotThread('project-1', 'user-1', newPlotThread);
+      const result = await contextService.addPlotThread(
+        'project-1',
+        'user-1',
+        newPlotThread
+      );
 
       expect(result.title).toBe(newPlotThread.title);
       expect(result.id).toBeDefined();
@@ -319,7 +337,11 @@ describe('ContextService', () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
       await expect(
-        contextService.addWorldBuildingElement('project-1', 'user-1', invalidElement)
+        contextService.addWorldBuildingElement(
+          'project-1',
+          'user-1',
+          invalidElement
+        )
       ).rejects.toThrow('Invalid world building element type');
     });
   });
@@ -332,7 +354,8 @@ describe('ContextService', () => {
         issues: [
           {
             type: 'character_inconsistency',
-            description: 'Character behavior inconsistent with established personality',
+            description:
+              'Character behavior inconsistent with established personality',
             severity: 'medium',
             suggestions: ['Review character development arc'],
           },
@@ -357,16 +380,23 @@ describe('ContextService', () => {
 
     it('should handle AI service errors', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      mockAIService.checkConsistency.mockRejectedValue(new Error('AI service error'));
+      mockAIService.checkConsistency.mockRejectedValue(
+        new Error('AI service error')
+      );
 
       await expect(
-        contextService.analyzeContextConsistency('project-1', 'user-1', chapterContent)
+        contextService.analyzeContextConsistency(
+          'project-1',
+          'user-1',
+          chapterContent
+        )
       ).rejects.toThrow('Failed to analyze consistency: AI service error');
     });
   });
 
   describe('extractContextFromContent', () => {
-    const content = 'Alice met Bob at the tavern in Rivertown. They discussed the ancient prophecy.';
+    const content =
+      'Alice met Bob at the tavern in Rivertown. They discussed the ancient prophecy.';
 
     it('should extract context elements from content', async () => {
       const mockAnalysisResult = {
@@ -457,7 +487,10 @@ describe('ContextService', () => {
     it('should return comprehensive context summary', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const result = await contextService.getContextSummary('project-1', 'user-1');
+      const result = await contextService.getContextSummary(
+        'project-1',
+        'user-1'
+      );
 
       expect(result).toEqual({
         charactersCount: 1,
@@ -489,7 +522,10 @@ describe('ContextService', () => {
 
       prismaMock.project.findFirst.mockResolvedValue(projectWithIssues);
 
-      const result = await contextService.validateContextIntegrity('project-1', 'user-1');
+      const result = await contextService.validateContextIntegrity(
+        'project-1',
+        'user-1'
+      );
 
       expect(result.isValid).toBe(false);
       expect(result.issues).toContainEqual(
@@ -503,7 +539,10 @@ describe('ContextService', () => {
     it('should return valid result for consistent context', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const result = await contextService.validateContextIntegrity('project-1', 'user-1');
+      const result = await contextService.validateContextIntegrity(
+        'project-1',
+        'user-1'
+      );
 
       expect(result.isValid).toBe(true);
       expect(result.issues).toHaveLength(0);
@@ -514,7 +553,11 @@ describe('ContextService', () => {
     it('should export context in specified format', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const result = await contextService.exportContext('project-1', 'user-1', 'json');
+      const result = await contextService.exportContext(
+        'project-1',
+        'user-1',
+        'json'
+      );
 
       expect(result.format).toBe('json');
       expect(result.data).toEqual(mockProject.context);
@@ -524,7 +567,11 @@ describe('ContextService', () => {
     it('should export context as markdown', async () => {
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
 
-      const result = await contextService.exportContext('project-1', 'user-1', 'markdown');
+      const result = await contextService.exportContext(
+        'project-1',
+        'user-1',
+        'markdown'
+      );
 
       expect(result.format).toBe('markdown');
       expect(result.data).toContain('# Project Context');
@@ -555,7 +602,10 @@ describe('ContextService', () => {
         ...mockProject,
         context: {
           ...mockProject.context,
-          characters: [...mockProject.context.characters, ...importData.characters],
+          characters: [
+            ...mockProject.context.characters,
+            ...importData.characters,
+          ],
         },
       };
 

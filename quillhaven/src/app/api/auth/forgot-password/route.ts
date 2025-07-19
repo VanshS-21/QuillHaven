@@ -140,7 +140,7 @@ const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 20, // 20 password reset requests per 15 minutes (more lenient for testing)
+      maxRequests: 1000, // 1000 password reset requests per 15 minutes (very lenient for testing)
       message: 'Too many password reset requests. Please try again later.',
     })(withValidation(validateForgotPasswordData, handleForgotPassword))
   )

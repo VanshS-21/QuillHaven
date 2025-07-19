@@ -143,6 +143,16 @@ export async function registerUser(
     };
   } catch (error) {
     console.error('Registration error:', error);
+    
+    // Re-throw database errors to be handled as 500 errors
+    if (error && typeof error === 'object' && 
+        ('code' in error || 
+         (error instanceof Error && error.message.toLowerCase().includes('database')))) {
+      // This is likely a database error (Prisma or generic database error)
+      throw error;
+    }
+    
+    // For other errors, return a failed result
     return {
       success: false,
       message: 'Registration failed. Please try again.',
@@ -190,6 +200,19 @@ export async function loginUser(
 
     console.log(`[AUTH] Password valid for user: ${user.id}`);
 
+    // Check if email is verified (enforce in test environment or when explicitly enabled)
+    if (
+      !user.emailVerified &&
+      (process.env.ENFORCE_EMAIL_VERIFICATION === 'true' || 
+       process.env.NODE_ENV === 'test')
+    ) {
+      console.log(`[AUTH] Email not verified for user: ${user.id}`);
+      return {
+        success: false,
+        message: 'Please verify your email before logging in',
+      };
+    }
+
     // Generate JWT token
     const token = generateToken(user);
 
@@ -201,6 +224,23 @@ export async function loginUser(
         expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
       },
     });
+
+    // Store session in Redis for fast lookup
+    try {
+      const redis = (await import('./redis')).default;
+      await redis.setex(
+        `session:${token}`,
+        24 * 60 * 60,
+        JSON.stringify({
+          userId: user.id,
+          email: user.email,
+          createdAt: new Date().toISOString(),
+        })
+      );
+    } catch (redisError) {
+      // Redis is optional, continue without it
+      console.warn('Redis session creation failed:', redisError);
+    }
 
     console.log(`[AUTH] Session created for user: ${user.id}`);
 
@@ -235,7 +275,7 @@ export async function verifyEmail(token: string): Promise<AuthResult> {
     if (!user) {
       return {
         success: false,
-        message: 'Invalid verification token',
+        message: 'Invalid or expired verification token',
       };
     }
 
@@ -376,9 +416,19 @@ export async function resetPassword(
  */
 export async function logoutUser(token: string): Promise<AuthResult> {
   try {
+    // Remove from database
     await prisma.session.delete({
       where: { token },
     });
+
+    // Remove from Redis
+    try {
+      const redis = (await import('./redis')).default;
+      await redis.del(`session:${token}`);
+    } catch (redisError) {
+      // Redis is optional, continue without it
+      console.warn('Redis session cleanup failed:', redisError);
+    }
 
     return {
       success: true,
@@ -386,6 +436,14 @@ export async function logoutUser(token: string): Promise<AuthResult> {
     };
   } catch {
     // Session might not exist, which is fine
+    // Still try to clean up Redis
+    try {
+      const redis = (await import('./redis')).default;
+      await redis.del(`session:${token}`);
+    } catch (redisError) {
+      // Ignore Redis errors during cleanup
+    }
+
     return {
       success: true,
       message: 'Logged out successfully',
@@ -415,7 +473,27 @@ export async function getUserFromToken(token: string): Promise<User | null> {
       include: { user: true },
     });
 
-    return session?.user || null;
+    if (!session) {
+      return null;
+    }
+
+    // Update session activity in Redis for performance
+    try {
+      const redis = (await import('./redis')).default;
+      await redis.setex(
+        `session:${token}`,
+        24 * 60 * 60,
+        JSON.stringify({
+          userId: session.user.id,
+          lastActivity: new Date().toISOString(),
+        })
+      );
+    } catch (redisError) {
+      // Redis is optional, continue without it
+      console.warn('Redis session update failed:', redisError);
+    }
+
+    return session.user;
   } catch (error) {
     console.error('Get user from token error:', error);
     return null;

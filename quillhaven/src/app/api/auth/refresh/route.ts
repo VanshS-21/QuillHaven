@@ -1,97 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getUserFromToken, generateToken } from '@/lib/auth';
-import { withCors, withRateLimit } from '@/lib/middleware';
-import { prisma } from '@/lib/prisma';
-import {
-  withErrorHandler,
-  ValidationError,
-  AuthenticationError,
-  handleDatabaseError,
-} from '@/lib/errorHandler';
-import {
-  logger,
-  PerformanceLogger,
-  SecurityLogger,
-  BusinessLogger,
-} from '@/lib/logger';
+import { verifyAuth, generateToken } from '@/lib/auth';
+import { withRateLimit, withCors } from '@/lib/middleware';
+import { withErrorHandler, AuthenticationError } from '@/lib/errorHandler';
+import { logger, SecurityLogger, PerformanceLogger } from '@/lib/logger';
 
-async function handleRefreshToken(req: NextRequest) {
+async function handleRefresh(req: NextRequest) {
   const clientIP =
     req.headers.get('x-forwarded-for') ||
     req.headers.get('x-real-ip') ||
     'unknown';
-  const userAgent = req.headers.get('user-agent') || 'unknown';
+  const userAgent = req.headers.get('user-agent');
 
-  // Get token from Authorization header
-  const authHeader = req.headers.get('authorization');
-
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    throw new ValidationError('No token provided');
-  }
-
-  const oldToken = authHeader.substring(7); // Remove 'Bearer ' prefix
-
-  // Get user from token with performance monitoring
-  const user = await PerformanceLogger.measureAsync(
-    'token_validation',
+  // Verify current token
+  const authResult = await PerformanceLogger.measureAsync(
+    'token_refresh',
     async () => {
-      try {
-        return await getUserFromToken(oldToken);
-      } catch (error) {
-        throw handleDatabaseError(error);
-      }
+      return await verifyAuth(req);
     },
-    { token: oldToken.substring(0, 8) + '...', clientIP }
+    { clientIP }
   );
 
-  if (!user) {
-    SecurityLogger.logAuthAttempt(false, 'unknown', clientIP, userAgent);
-
-    logger.warn('Token refresh failed - invalid token', {
-      token: oldToken.substring(0, 8) + '...',
+  if (!authResult.success || !authResult.user) {
+    SecurityLogger.logAuthAttempt(
+      false,
+      'token_refresh',
       clientIP,
-      userAgent,
-    });
+      userAgent || undefined,
+      'Invalid token for refresh'
+    );
 
     throw new AuthenticationError('Invalid or expired token');
   }
 
   // Generate new token
-  const newToken = generateToken(user);
-
-  // Update session with new token and performance monitoring
-  await PerformanceLogger.measureAsync(
-    'session_update',
-    async () => {
-      try {
-        return await prisma.session.update({
-          where: { token: oldToken },
-          data: {
-            token: newToken,
-            expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-          },
-        });
-      } catch (error) {
-        throw handleDatabaseError(error);
-      }
-    },
-    { userId: user.id, clientIP }
-  );
+  const newToken = generateToken(authResult.user as any);
 
   // Log successful token refresh
-  SecurityLogger.logAuthAttempt(true, user.email, clientIP, userAgent);
-
-  BusinessLogger.logUserAction('token_refresh', user.id, {
+  SecurityLogger.logAuthAttempt(
+    true,
+    authResult.user.email,
     clientIP,
-    userAgent,
-    timestamp: new Date().toISOString(),
-  });
+    userAgent || undefined,
+    'Token refreshed'
+  );
 
   logger.info('Token refreshed successfully', {
-    userId: user.id,
-    email: user.email,
+    userId: authResult.user.id,
+    email: authResult.user.email,
     clientIP,
-    userAgent,
   });
 
   return NextResponse.json(
@@ -99,27 +55,27 @@ async function handleRefreshToken(req: NextRequest) {
       message: 'Token refreshed successfully',
       token: newToken,
       user: {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        emailVerified: user.emailVerified,
-        subscriptionTier: user.subscriptionTier,
-        writingPreferences: user.writingPreferences,
+        id: authResult.user.id,
+        email: authResult.user.email,
+        firstName: authResult.user.firstName,
+        lastName: authResult.user.lastName,
+        emailVerified: authResult.user.emailVerified,
+        subscriptionTier: authResult.user.subscriptionTier,
+        writingPreferences: authResult.user.writingPreferences,
       },
     },
     { status: 200 }
   );
 }
 
-// Apply middleware
+// Apply middleware with error handling
 const handler = withErrorHandler(
   withCors(
     withRateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      maxRequests: 20, // 20 refresh attempts per 15 minutes
+      maxRequests: 100, // 100 refresh attempts per 15 minutes
       message: 'Too many token refresh attempts. Please try again later.',
-    })(handleRefreshToken)
+    })(handleRefresh)
   )
 );
 

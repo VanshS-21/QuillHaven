@@ -159,7 +159,10 @@ export class AIService {
     }
 
     // World building context
-    const worldElements = projectContext.worldElements || (projectContext as any).worldBuilding || [];
+    const worldElements =
+      projectContext.worldElements ||
+      (projectContext as any).worldBuilding ||
+      [];
     if (worldElements && worldElements.length > 0) {
       prompt += `**World Building:**\n`;
       worldElements.forEach((element: any) => {
@@ -169,7 +172,10 @@ export class AIService {
     }
 
     // Timeline context
-    if (projectContext.timelineEvents && projectContext.timelineEvents.length > 0) {
+    if (
+      projectContext.timelineEvents &&
+      projectContext.timelineEvents.length > 0
+    ) {
       prompt += `**Timeline Events:**\n`;
       projectContext.timelineEvents
         .sort((a, b) => a.importance - b.importance)
@@ -194,7 +200,11 @@ export class AIService {
     prompt += `- Tone: ${parameters.tone}\n`;
     prompt += `- Style: ${parameters.style}\n`;
 
-    if (parameters.focusCharacters && parameters.focusCharacters.length > 0 && projectContext.characters) {
+    if (
+      parameters.focusCharacters &&
+      parameters.focusCharacters.length > 0 &&
+      projectContext.characters
+    ) {
       const focusChars = projectContext.characters
         .filter((char) => parameters.focusCharacters.includes(char.id))
         .map((char) => char.name);
@@ -203,7 +213,11 @@ export class AIService {
       }
     }
 
-    if (parameters.plotPoints && parameters.plotPoints.length > 0 && projectContext.plotThreads) {
+    if (
+      parameters.plotPoints &&
+      parameters.plotPoints.length > 0 &&
+      projectContext.plotThreads
+    ) {
       const focusPlots = projectContext.plotThreads
         .filter((plot) => parameters.plotPoints.includes(plot.id))
         .map((plot) => plot.title);
@@ -258,7 +272,8 @@ ${content}`;
     prompt += `**Established Context:**\n`;
     prompt += `Characters: ${context.characters.map((c) => `${c.name} - ${c.description}`).join('; ')}\n`;
     prompt += `Plot Threads: ${context.plotThreads.map((p) => `${p.title} - ${p.description}`).join('; ')}\n`;
-    const worldElements = context.worldElements || (context as any).worldBuilding || [];
+    const worldElements =
+      context.worldElements || (context as any).worldBuilding || [];
     prompt += `World Elements: ${worldElements.map((w: any) => `${w.name} - ${w.description}`).join('; ')}\n\n`;
 
     prompt += `**New Content to Check:**\n${newContent}\n\n`;
@@ -377,8 +392,9 @@ ${content}`;
     }
 
     // Generic error - make it retryable by default unless it's clearly non-retryable
-    const isRetryable = !message.toLowerCase().includes('invalid') && 
-                       !message.toLowerCase().includes('unauthorized');
+    const isRetryable =
+      !message.toLowerCase().includes('invalid') &&
+      !message.toLowerCase().includes('unauthorized');
     return new AIServiceError(message, 'UNKNOWN_ERROR', isRetryable);
   }
 
@@ -393,7 +409,8 @@ ${content}`;
   }
 
   private extractContextIds(context: ProjectContextForAI): string[] {
-    const worldElements = context.worldElements || (context as any).worldBuilding || [];
+    const worldElements =
+      context.worldElements || (context as any).worldBuilding || [];
     return [
       ...(context.characters || []).map((c) => c.id),
       ...(context.plotThreads || []).map((p) => p.id),

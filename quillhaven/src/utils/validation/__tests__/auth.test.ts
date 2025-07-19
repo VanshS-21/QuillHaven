@@ -44,7 +44,9 @@ describe('Auth Validation Utils', () => {
 
     it('should handle edge cases', () => {
       expect(validateEmail('a@b.c')).toBe(true); // Minimum valid email
-      expect(validateEmail('very.long.email.address@very.long.domain.name.com')).toBe(true);
+      expect(
+        validateEmail('very.long.email.address@very.long.domain.name.com')
+      ).toBe(true);
       expect(validateEmail('user@domain-with-hyphens.com')).toBe(true);
     });
   });
@@ -71,32 +73,42 @@ describe('Auth Validation Utils', () => {
       shortPasswords.forEach((password) => {
         const result = validatePassword(password);
         expect(result.isValid).toBe(false);
-        expect(result.errors).toContain('Password must be at least 8 characters long');
+        expect(result.errors).toContain(
+          'Password must be at least 8 characters long'
+        );
       });
     });
 
     it('should reject passwords without uppercase letters', () => {
       const result = validatePassword('password123!');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one uppercase letter');
+      expect(result.errors).toContain(
+        'Password must contain at least one uppercase letter'
+      );
     });
 
     it('should reject passwords without lowercase letters', () => {
       const result = validatePassword('PASSWORD123!');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one lowercase letter');
+      expect(result.errors).toContain(
+        'Password must contain at least one lowercase letter'
+      );
     });
 
     it('should reject passwords without numbers', () => {
       const result = validatePassword('Password!');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one number');
+      expect(result.errors).toContain(
+        'Password must contain at least one number'
+      );
     });
 
     it('should reject passwords without special characters', () => {
       const result = validatePassword('Password123');
       expect(result.isValid).toBe(false);
-      expect(result.errors).toContain('Password must contain at least one special character');
+      expect(result.errors).toContain(
+        'Password must contain at least one special character'
+      );
     });
 
     it('should reject common passwords', () => {
@@ -332,33 +344,33 @@ describe('Auth Validation Utils', () => {
   describe('performance tests', () => {
     it('should validate emails quickly', () => {
       const startTime = Date.now();
-      
+
       for (let i = 0; i < 1000; i++) {
         validateEmail(`test${i}@example.com`);
       }
-      
+
       const endTime = Date.now();
       expect(endTime - startTime).toBeLessThan(100);
     });
 
     it('should validate passwords quickly', () => {
       const startTime = Date.now();
-      
+
       for (let i = 0; i < 1000; i++) {
         validatePassword(`Password${i}!`);
       }
-      
+
       const endTime = Date.now();
       expect(endTime - startTime).toBeLessThan(500);
     });
 
     it('should sanitize inputs quickly', () => {
       const startTime = Date.now();
-      
+
       for (let i = 0; i < 1000; i++) {
         sanitizeInput(`<script>alert(${i})</script>Safe content ${i}`);
       }
-      
+
       const endTime = Date.now();
       expect(endTime - startTime).toBeLessThan(200);
     });
@@ -394,11 +406,7 @@ describe('Auth Validation Utils', () => {
     });
 
     it('should prevent prototype pollution attempts', () => {
-      const pollutionAttempts = [
-        '__proto__',
-        'constructor',
-        'prototype',
-      ];
+      const pollutionAttempts = ['__proto__', 'constructor', 'prototype'];
 
       pollutionAttempts.forEach((attempt) => {
         const sanitized = sanitizeInput(attempt);

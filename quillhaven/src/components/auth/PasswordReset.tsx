@@ -22,6 +22,7 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import { useAuth } from './AuthContext';
+import { useNotifications } from '@/components/ui/NotificationSystem';
 import type { PasswordResetFormData } from '@/types/auth';
 
 const resetSchema = z.object({
@@ -34,9 +35,11 @@ interface PasswordResetProps {
 
 export function PasswordReset({ onSwitchToLogin }: PasswordResetProps) {
   const { resetPassword } = useAuth();
+  const { notifyError, notifySuccess, notifyInfo } = useNotifications();
   const [error, setError] = useState<string>('');
   const [success, setSuccess] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   const form = useForm<PasswordResetFormData>({
     resolver: zodResolver(resetSchema),
@@ -51,10 +54,48 @@ export function PasswordReset({ onSwitchToLogin }: PasswordResetProps) {
       setSuccess('');
       setIsLoading(true);
       await resetPassword(data.email);
-      setSuccess('Password reset instructions have been sent to your email.');
+      const successMessage = `Password reset instructions have been sent to ${data.email}. Please check your email and follow the instructions to reset your password.`;
+      setSuccess(successMessage);
+      setEmailSent(true);
       form.reset();
+      notifySuccess(
+        'Reset Email Sent',
+        `Check your email at ${data.email} for reset instructions.`
+      );
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Password reset failed');
+      const errorMessage =
+        err instanceof Error ? err.message : 'Password reset failed';
+      setError(errorMessage);
+      notifyError('Reset Failed', errorMessage);
+      console.error('Password reset error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendEmail = async () => {
+    const email = form.getValues('email');
+    if (!email) {
+      setError('Please enter your email address first');
+      return;
+    }
+
+    try {
+      setError('');
+      setIsLoading(true);
+      await resetPassword(email);
+      const successMessage =
+        'Password reset instructions have been resent to your email.';
+      setSuccess(successMessage);
+      notifyInfo(
+        'Email Resent',
+        'Please check your email for the new reset instructions.'
+      );
+    } catch (err) {
+      const errorMessage =
+        err instanceof Error ? err.message : 'Failed to resend email';
+      setError(errorMessage);
+      notifyError('Resend Failed', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -109,6 +150,22 @@ export function PasswordReset({ onSwitchToLogin }: PasswordResetProps) {
             </Button>
           </form>
         </Form>
+
+        {emailSent && (
+          <div className="mt-4 text-center">
+            <p className="text-sm text-gray-600 mb-2">
+              Didn&apos;t receive the email?
+            </p>
+            <button
+              type="button"
+              onClick={handleResendEmail}
+              disabled={isLoading}
+              className="text-blue-600 hover:text-blue-500 hover:underline font-medium text-sm"
+            >
+              Resend reset link
+            </button>
+          </div>
+        )}
 
         <div className="mt-6 text-center text-sm">
           {onSwitchToLogin && (

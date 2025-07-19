@@ -71,14 +71,18 @@ describe('Export Performance Tests', () => {
     updatedAt: new Date(),
   });
 
-  const createMockChapters = (count: number, wordsPerChapter: number = 2500): Chapter[] => {
+  const createMockChapters = (
+    count: number,
+    wordsPerChapter: number = 2500
+  ): Chapter[] => {
     return Array.from({ length: count }, (_, i) => ({
       id: `chapter-${i + 1}`,
       projectId: 'project-1',
       title: `Chapter ${i + 1}: Performance Test`,
-      content: 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(
-        Math.floor(wordsPerChapter / 10)
-      ),
+      content:
+        'Lorem ipsum dolor sit amet, consectetur adipiscing elit. '.repeat(
+          Math.floor(wordsPerChapter / 10)
+        ),
       wordCount: wordsPerChapter,
       order: i + 1,
       status: 'final',
@@ -145,9 +149,9 @@ describe('Export Performance Tests', () => {
       });
 
       // TXT should be fastest, EPUB might be slowest
-      const txtTime = results.find(r => r.format === 'txt')?.time || 0;
-      const epubTime = results.find(r => r.format === 'epub')?.time || 0;
-      
+      const txtTime = results.find((r) => r.format === 'txt')?.time || 0;
+      const epubTime = results.find((r) => r.format === 'epub')?.time || 0;
+
       expect(txtTime).toBeLessThan(2000); // TXT should be very fast
     });
   });
@@ -269,7 +273,7 @@ describe('Export Performance Tests', () => {
 
       const startTime = Date.now();
       const results = await Promise.all(
-        exportRequests.map(request => exportService.exportProject(request))
+        exportRequests.map((request) => exportService.exportProject(request))
       );
       const endTime = Date.now();
 
@@ -277,7 +281,7 @@ describe('Export Performance Tests', () => {
 
       expect(executionTime).toBeLessThan(25000); // 25 seconds for 5 concurrent exports
       expect(results).toHaveLength(5);
-      results.forEach(result => {
+      results.forEach((result) => {
         expect(result.downloadUrl).toBeDefined();
       });
     });
@@ -290,7 +294,7 @@ describe('Export Performance Tests', () => {
       prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
 
       const formats = ['txt', 'docx', 'pdf', 'epub', 'txt'] as const;
-      const exportRequests = formats.map(format => ({
+      const exportRequests = formats.map((format) => ({
         projectId: 'project-1',
         userId: 'user-1',
         format,
@@ -299,7 +303,7 @@ describe('Export Performance Tests', () => {
 
       const startTime = Date.now();
       const results = await Promise.all(
-        exportRequests.map(request => exportService.exportProject(request))
+        exportRequests.map((request) => exportService.exportProject(request))
       );
       const endTime = Date.now();
 
@@ -360,7 +364,7 @@ describe('Export Performance Tests', () => {
       };
 
       const initialMemory = process.memoryUsage().heapUsed;
-      
+
       const startTime = Date.now();
       const result = await exportService.exportProject(exportRequest);
       const endTime = Date.now();
@@ -377,8 +381,11 @@ describe('Export Performance Tests', () => {
 
   describe('Export Cleanup Performance', () => {
     it('should clean up expired exports quickly', async () => {
-      const expiredFiles = Array.from({ length: 100 }, (_, i) => `expired-export-${i}.txt`);
-      
+      const expiredFiles = Array.from(
+        { length: 100 },
+        (_, i) => `expired-export-${i}.txt`
+      );
+
       mockFs.readdir.mockResolvedValue(expiredFiles as any);
       mockFs.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
@@ -397,12 +404,12 @@ describe('Export Performance Tests', () => {
 
     it('should handle cleanup errors gracefully', async () => {
       const files = ['file1.txt', 'file2.pdf', 'file3.docx'];
-      
+
       mockFs.readdir.mockResolvedValue(files as any);
       mockFs.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 25 * 60 * 60 * 1000),
       } as any);
-      
+
       // Make some deletions fail
       mockFs.unlink
         .mockResolvedValueOnce(undefined)
@@ -474,7 +481,7 @@ describe('Export Performance Tests', () => {
 
         const startTime = Date.now();
         await Promise.all(
-          exportRequests.map(request => exportService.exportProject(request))
+          exportRequests.map((request) => exportService.exportProject(request))
         );
         const endTime = Date.now();
 
@@ -485,7 +492,7 @@ describe('Export Performance Tests', () => {
       for (let i = 1; i < results.length; i++) {
         const scaleFactor = concurrencyLevels[i] / concurrencyLevels[i - 1];
         const timeFactor = results[i] / results[i - 1];
-        
+
         // Time increase should not be more than 2x the scale factor
         expect(timeFactor).toBeLessThan(scaleFactor * 2);
       }
@@ -501,9 +508,9 @@ describe('Export Performance Tests', () => {
       prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
 
       const formatRequirements = {
-        txt: 3000,   // 3 seconds
+        txt: 3000, // 3 seconds
         docx: 15000, // 15 seconds
-        pdf: 20000,  // 20 seconds
+        pdf: 20000, // 20 seconds
         epub: 25000, // 25 seconds
       };
 
@@ -553,14 +560,14 @@ describe('Export Performance Tests', () => {
       };
 
       const startTime = Date.now();
-      
+
       // This should eventually succeed after retries
       try {
         await exportService.exportProject(exportRequest);
       } catch (error) {
         // Expected to fail in this test setup
       }
-      
+
       const endTime = Date.now();
       const executionTime = endTime - startTime;
 

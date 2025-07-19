@@ -114,11 +114,15 @@ async function handleCreateProject(req: NextRequest): Promise<NextResponse> {
 
   // Validate required fields
   if (!title || typeof title !== 'string' || title.trim().length === 0) {
-    throw new ValidationError('Title is required and must be a non-empty string');
+    throw new ValidationError(
+      'Title is required and must be a non-empty string'
+    );
   }
 
   if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
-    throw new ValidationError('Genre is required and must be a non-empty string');
+    throw new ValidationError(
+      'Genre is required and must be a non-empty string'
+    );
   }
 
   if (targetLength && (typeof targetLength !== 'number' || targetLength <= 0)) {

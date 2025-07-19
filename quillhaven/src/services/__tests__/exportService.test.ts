@@ -133,7 +133,7 @@ describe('ExportService', () => {
     beforeEach(() => {
       // Reset all mocks first
       jest.clearAllMocks();
-      
+
       // Set up basic mocks
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
@@ -142,11 +142,11 @@ describe('ExportService', () => {
       mockFs.promises.writeFile.mockResolvedValue(undefined);
       mockFs.promises.stat.mockResolvedValue({ size: 1024 } as any);
       mockFs.promises.readdir.mockResolvedValue([]);
-      
+
       // Set up library mocks to succeed by default
       const { Packer } = require('docx');
       Packer.toBuffer.mockResolvedValue(Buffer.from('docx content'));
-      
+
       const puppeteer = require('puppeteer');
       puppeteer.launch.mockResolvedValue({
         newPage: jest.fn().mockResolvedValue({
@@ -155,7 +155,7 @@ describe('ExportService', () => {
         }),
         close: jest.fn(),
       });
-      
+
       const nodepub = require('nodepub');
       nodepub.document.mockImplementation(() => ({
         addSection: jest.fn(),
@@ -377,7 +377,7 @@ describe('ExportService', () => {
 
     it('should remove expired export files', async () => {
       const expiredFiles = ['expired-export-1.txt', 'expired-export-2.pdf'];
-      
+
       mockFs.promises.readdir.mockResolvedValue(expiredFiles as any);
       mockFs.promises.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
@@ -397,7 +397,7 @@ describe('ExportService', () => {
 
     it('should not remove recent export files', async () => {
       const recentFiles = ['recent-export.txt'];
-      
+
       mockFs.promises.readdir.mockResolvedValue(recentFiles as any);
       mockFs.promises.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
@@ -413,7 +413,9 @@ describe('ExportService', () => {
       mockFs.promises.readdir.mockRejectedValue(new Error('Permission denied'));
 
       // Should not throw
-      await expect(exportService.cleanupExpiredExports()).resolves.toBeUndefined();
+      await expect(
+        exportService.cleanupExpiredExports()
+      ).resolves.toBeUndefined();
     });
   });
 
@@ -474,7 +476,7 @@ describe('ExportService', () => {
       prismaMock.chapter.findMany.mockResolvedValue(largeChapters);
 
       const startTime = Date.now();
-      
+
       const exportRequest = {
         projectId: 'project-1',
         userId: 'user-1',

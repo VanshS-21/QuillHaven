@@ -23,11 +23,32 @@ describe('ProjectCard Component', () => {
     status: 'in-progress',
     context: {
       characters: [
-        { id: '1', name: 'Hero', description: 'Main character', role: 'protagonist', relationships: [], developmentArc: 'Growth' },
-        { id: '2', name: 'Villain', description: 'Antagonist', role: 'antagonist', relationships: [], developmentArc: 'Fall' },
+        {
+          id: '1',
+          name: 'Hero',
+          description: 'Main character',
+          role: 'protagonist',
+          relationships: [],
+          developmentArc: 'Growth',
+        },
+        {
+          id: '2',
+          name: 'Villain',
+          description: 'Antagonist',
+          role: 'antagonist',
+          relationships: [],
+          developmentArc: 'Fall',
+        },
       ],
       plotThreads: [
-        { id: '1', title: 'Main Quest', description: 'Save the world', status: 'developing', relatedCharacters: ['1'], chapterReferences: [] },
+        {
+          id: '1',
+          title: 'Main Quest',
+          description: 'Save the world',
+          status: 'developing',
+          relatedCharacters: ['1'],
+          chapterReferences: [],
+        },
       ],
       worldBuilding: [],
       timeline: [],
@@ -55,7 +76,9 @@ describe('ProjectCard Component', () => {
     );
 
     expect(screen.getByText('Test Novel')).toBeInTheDocument();
-    expect(screen.getByText('A fascinating story about adventure and discovery')).toBeInTheDocument();
+    expect(
+      screen.getByText('A fascinating story about adventure and discovery')
+    ).toBeInTheDocument();
     expect(screen.getByText('Fantasy')).toBeInTheDocument();
     expect(screen.getByText('In Progress')).toBeInTheDocument();
   });
@@ -148,7 +171,9 @@ describe('ProjectCard Component', () => {
       />
     );
 
-    const deleteButton = screen.getByRole('button', { name: /delete project/i });
+    const deleteButton = screen.getByRole('button', {
+      name: /delete project/i,
+    });
     await user.click(deleteButton);
 
     expect(mockOnDelete).toHaveBeenCalledWith(mockProject);
@@ -165,7 +190,9 @@ describe('ProjectCard Component', () => {
       />
     );
 
-    const exportButton = screen.getByRole('button', { name: /export project/i });
+    const exportButton = screen.getByRole('button', {
+      name: /export project/i,
+    });
     await user.click(exportButton);
 
     expect(mockOnExport).toHaveBeenCalledWith(mockProject);
@@ -284,10 +311,14 @@ describe('ProjectCard Component', () => {
     expect(screen.getByRole('button', { name: /edit project/i })).toHaveFocus();
 
     await user.tab();
-    expect(screen.getByRole('button', { name: /delete project/i })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: /delete project/i })
+    ).toHaveFocus();
 
     await user.tab();
-    expect(screen.getByRole('button', { name: /export project/i })).toHaveFocus();
+    expect(
+      screen.getByRole('button', { name: /export project/i })
+    ).toHaveFocus();
   });
 
   it('should handle keyboard activation', async () => {
@@ -303,7 +334,7 @@ describe('ProjectCard Component', () => {
 
     const editButton = screen.getByRole('button', { name: /edit project/i });
     editButton.focus();
-    
+
     await user.keyboard('{Enter}');
     expect(mockOnEdit).toHaveBeenCalledWith(mockProject);
 
@@ -314,7 +345,7 @@ describe('ProjectCard Component', () => {
   it('should prevent event bubbling on button clicks', async () => {
     const user = userEvent.setup();
     const mockCardClick = jest.fn();
-    
+
     render(
       <div onClick={mockCardClick}>
         <ProjectCard
@@ -353,7 +384,8 @@ describe('ProjectCard Component', () => {
   it('should handle very long titles gracefully', () => {
     const longTitleProject = {
       ...mockProject,
-      title: 'A'.repeat(100) + ' Very Long Title That Should Be Handled Gracefully',
+      title:
+        'A'.repeat(100) + ' Very Long Title That Should Be Handled Gracefully',
     };
 
     render(
@@ -371,7 +403,9 @@ describe('ProjectCard Component', () => {
   it('should handle very long descriptions gracefully', () => {
     const longDescriptionProject = {
       ...mockProject,
-      description: 'A'.repeat(500) + ' very long description that should be truncated or handled appropriately',
+      description:
+        'A'.repeat(500) +
+        ' very long description that should be truncated or handled appropriately',
     };
 
     render(
@@ -383,7 +417,9 @@ describe('ProjectCard Component', () => {
       />
     );
 
-    expect(screen.getByText(longDescriptionProject.description)).toBeInTheDocument();
+    expect(
+      screen.getByText(longDescriptionProject.description)
+    ).toBeInTheDocument();
   });
 
   it('should handle missing optional callbacks', () => {
@@ -427,10 +463,10 @@ describe('ProjectCard Component', () => {
     );
 
     const projectCard = screen.getByRole('article');
-    
+
     await user.hover(projectCard);
     // Would test hover styles if they affect DOM/classes
-    
+
     await user.unhover(projectCard);
     // Would test unhover styles if they affect DOM/classes
   });
@@ -447,7 +483,7 @@ describe('ProjectCard Component', () => {
     );
 
     const projectCard = screen.getByRole('article');
-    
+
     await user.tab();
     expect(projectCard).toHaveFocus();
   });

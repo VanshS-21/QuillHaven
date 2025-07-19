@@ -78,7 +78,11 @@ export class ExportService {
       const filePath = path.join(ExportService.EXPORT_DIR, filename);
 
       // Generate export content
-      const content = await this.generateExportContent(project, chapters, request.includeMetadata);
+      const content = await this.generateExportContent(
+        project,
+        chapters,
+        request.includeMetadata
+      );
 
       // Generate file based on format
       await this.generateFileByFormat(content, request.format, filePath);
@@ -397,7 +401,9 @@ export class ExportService {
       // Add title
       children.push(
         new Paragraph({
-          children: [new TextRun({ text: content.title, bold: true, size: 32 })],
+          children: [
+            new TextRun({ text: content.title, bold: true, size: 32 }),
+          ],
           heading: HeadingLevel.TITLE,
         })
       );
@@ -753,9 +759,10 @@ export class ExportService {
     const metadata: ExportMetadata = includeMetadata
       ? {
           title: project.title,
-          author: project.user?.firstName && project.user?.lastName
-            ? `${project.user.firstName} ${project.user.lastName}`
-            : undefined,
+          author:
+            project.user?.firstName && project.user?.lastName
+              ? `${project.user.firstName} ${project.user.lastName}`
+              : undefined,
           description: project.description || undefined,
           genre: project.genre,
           language: 'en',
@@ -864,11 +871,11 @@ export class ExportService {
     try {
       const exportDir = ExportService.EXPORT_DIR;
       const files = await fs.promises.readdir(exportDir);
-      
+
       for (const file of files) {
         const filePath = path.join(exportDir, file);
         const stats = await fs.promises.stat(filePath);
-        
+
         // Check if file is older than MAX_FILE_AGE
         if (Date.now() - stats.mtime.getTime() > ExportService.MAX_FILE_AGE) {
           await fs.promises.unlink(filePath);
