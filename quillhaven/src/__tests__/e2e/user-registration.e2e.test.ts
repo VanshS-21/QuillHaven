@@ -1,26 +1,48 @@
 import { NextRequest } from 'next/server';
 import { POST as registerHandler } from '@/app/api/auth/register/route';
-import { POST as verifyHandler } from '@/app/api/auth/verify-email/route';
+import { GET as verifyHandler } from '@/app/api/auth/verify-email/route';
 import { POST as loginHandler } from '@/app/api/auth/login/route';
 import { prismaMock } from '../../../__mocks__/prisma';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { setupTestEnvironment, createMockEmailService } from '../setup/testEnvironment';
+
+// Mock email service first
+jest.mock('@/lib/email', () => ({
+  sendVerificationEmail: jest.fn().mockResolvedValue({
+    success: true,
+    message: 'Verification email sent successfully',
+  }),
+  sendPasswordResetEmail: jest.fn().mockResolvedValue({
+    success: true,
+    message: 'Password reset email sent successfully',
+  }),
+  testEmailConnection: jest.fn().mockResolvedValue({
+    success: true,
+    message: 'Email configuration is valid',
+  }),
+}));
 
 // Mock dependencies
 jest.mock('bcryptjs');
 jest.mock('jsonwebtoken');
+
 const mockBcrypt = bcrypt as jest.Mocked<typeof bcrypt>;
 const mockJwt = jwt as jest.Mocked<typeof jwt>;
 
-// Mock email service
-const mockSendVerificationEmail = jest.fn();
-jest.mock('@/lib/email', () => ({
-  sendVerificationEmail: mockSendVerificationEmail,
-}));
+// Get the mocked email function
+const mockEmailModule = jest.mocked(require('@/lib/email'));
+const mockSendVerificationEmail = mockEmailModule.sendVerificationEmail;
 
 describe('User Registration E2E Flow', () => {
+  const cleanup = setupTestEnvironment();
+
   beforeEach(() => {
     jest.clearAllMocks();
+  });
+
+  afterAll(async () => {
+    await cleanup();
   });
 
   it('should complete full user registration and verification flow', async () => {
@@ -71,8 +93,8 @@ describe('User Registration E2E Flow', () => {
     expect(registerData.message).toContain('Registration successful');
     expect(mockSendVerificationEmail).toHaveBeenCalledWith(
       userData.email,
-      userData.firstName,
-      verificationToken
+      verificationToken,
+      userData.firstName
     );
 
     // Step 2: Attempt login before verification (should fail)
@@ -104,10 +126,8 @@ describe('User Registration E2E Flow', () => {
     prismaMock.user.findFirst.mockResolvedValue(newUser);
     prismaMock.user.update.mockResolvedValue(verifiedUser);
 
-    const verifyRequest = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token: verificationToken }),
-      headers: { 'Content-Type': 'application/json' },
+    const verifyRequest = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${verificationToken}`, {
+      method: 'GET',
     });
 
     const verifyResponse = await verifyHandler(verifyRequest);
@@ -200,10 +220,8 @@ describe('User Registration E2E Flow', () => {
 
     prismaMock.user.findFirst.mockResolvedValue(null);
 
-    const verifyRequest = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token: invalidToken }),
-      headers: { 'Content-Type': 'application/json' },
+    const verifyRequest = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${invalidToken}`, {
+      method: 'GET',
     });
 
     const verifyResponse = await verifyHandler(verifyRequest);
@@ -410,10 +428,8 @@ describe('User Registration E2E Flow', () => {
 
     prismaMock.user.findFirst.mockResolvedValue(expiredUser);
 
-    const verifyRequest = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-      method: 'POST',
-      body: JSON.stringify({ token: 'expired-token' }),
-      headers: { 'Content-Type': 'application/json' },
+    const verifyRequest = new NextRequest('http://localhost:3000/api/auth/verify-email?token=expired-token', {
+      method: 'GET',
     });
 
     const verifyResponse = await verifyHandler(verifyRequest);

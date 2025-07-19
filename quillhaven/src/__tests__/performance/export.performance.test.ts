@@ -2,6 +2,7 @@ import { ExportService } from '@/services/exportService';
 import { prismaMock } from '../../../__mocks__/prisma';
 import { Project, Chapter } from '@prisma/client';
 import * as fs from 'fs/promises';
+import { setupTestEnvironment } from '../setup/testEnvironment';
 
 // Mock file system operations
 jest.mock('fs/promises');
@@ -38,12 +39,17 @@ jest.mock('nodepub', () => ({
 
 describe('Export Performance Tests', () => {
   let exportService: ExportService;
+  const cleanup = setupTestEnvironment();
 
   beforeEach(() => {
     exportService = new ExportService();
     jest.clearAllMocks();
     mockFs.mkdir.mockResolvedValue(undefined);
     mockFs.writeFile.mockResolvedValue(undefined);
+  });
+
+  afterAll(async () => {
+    await cleanup();
   });
 
   const createMockProject = (): Project => ({

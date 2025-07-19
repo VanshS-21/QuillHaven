@@ -156,7 +156,7 @@ describe('Input Validation Utils', () => {
     it('should calculate word count', () => {
       const chapterData = {
         title: 'Chapter 1',
-        content: 'This is a test chapter with exactly ten words.',
+        content: 'This is a test chapter with exactly ten words total.',
       };
       
       const result = validateChapterData(chapterData);

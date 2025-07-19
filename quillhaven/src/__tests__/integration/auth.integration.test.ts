@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { POST as registerHandler } from '@/app/api/auth/register/route';
 import { POST as loginHandler } from '@/app/api/auth/login/route';
-import { POST as verifyHandler } from '@/app/api/auth/verify-email/route';
+import { GET as verifyHandler } from '@/app/api/auth/verify-email/route';
 import { POST as resetHandler } from '@/app/api/auth/reset-password/route';
 import { prismaMock } from '../../../__mocks__/prisma';
 import bcrypt from 'bcryptjs';
@@ -293,10 +293,8 @@ describe('Auth API Integration Tests', () => {
       prismaMock.user.findFirst.mockResolvedValue(mockUser);
       prismaMock.user.update.mockResolvedValue(verifiedUser);
 
-      const request = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify({ token }),
-        headers: { 'Content-Type': 'application/json' },
+      const request = new NextRequest(`http://localhost:3000/api/auth/verify-email?token=${token}`, {
+        method: 'GET',
       });
 
       const response = await verifyHandler(request);
@@ -310,10 +308,8 @@ describe('Auth API Integration Tests', () => {
     it('should return 400 for invalid token', async () => {
       prismaMock.user.findFirst.mockResolvedValue(null);
 
-      const request = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify({ token: 'invalid-token' }),
-        headers: { 'Content-Type': 'application/json' },
+      const request = new NextRequest('http://localhost:3000/api/auth/verify-email?token=invalid-token', {
+        method: 'GET',
       });
 
       const response = await verifyHandler(request);
@@ -325,9 +321,7 @@ describe('Auth API Integration Tests', () => {
 
     it('should return 400 for missing token', async () => {
       const request = new NextRequest('http://localhost:3000/api/auth/verify-email', {
-        method: 'POST',
-        body: JSON.stringify({}),
-        headers: { 'Content-Type': 'application/json' },
+        method: 'GET',
       });
 
       const response = await verifyHandler(request);

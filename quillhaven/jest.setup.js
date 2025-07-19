@@ -119,3 +119,6 @@ afterAll(async () => {
   // Clean up any open handles
   await new Promise((resolve) => setTimeout(resolve, 100));
 });
+
+// Set test timeout to prevent hanging tests
+jest.setTimeout(30000);

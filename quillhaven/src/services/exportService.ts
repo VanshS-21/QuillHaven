@@ -26,6 +26,89 @@ export class ExportService {
   }
 
   /**
+   * Export project directly (for testing and immediate exports)
+   */
+  async exportProject(request: {
+    projectId: string;
+    userId: string;
+    format: 'docx' | 'pdf' | 'txt' | 'epub';
+    includeMetadata?: boolean;
+    chapterIds?: string[];
+  }): Promise<{
+    downloadUrl: string;
+    filename: string;
+    format: string;
+    size: number;
+    expiresAt: Date;
+  }> {
+    try {
+      // Validate project ownership
+      const project = await prisma.project.findFirst({
+        where: {
+          id: request.projectId,
+          userId: request.userId,
+        },
+      });
+
+      if (!project) {
+        throw new Error('Project not found');
+      }
+
+      // Get chapters
+      const chapters = await prisma.chapter.findMany({
+        where: request.chapterIds
+          ? {
+              projectId: request.projectId,
+              id: { in: request.chapterIds },
+            }
+          : { projectId: request.projectId },
+        orderBy: { order: 'asc' },
+      });
+
+      if (chapters.length === 0) {
+        throw new Error('No chapters found for export');
+      }
+
+      // Generate filename
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const sanitizedTitle = project.title
+        .replace(/[^a-zA-Z0-9\s]/g, '')
+        .replace(/\s+/g, '_');
+      const filename = `${sanitizedTitle}_${timestamp}.${request.format}`;
+      const filePath = path.join(ExportService.EXPORT_DIR, filename);
+
+      // Generate export content
+      const content = await this.generateExportContent(project, chapters, request.includeMetadata);
+
+      // Generate file based on format
+      await this.generateFileByFormat(content, request.format, filePath);
+
+      // Get file size
+      const stats = await fs.promises.stat(filePath);
+      const size = stats.size;
+
+      // Generate download URL
+      const downloadUrl = this.getDownloadUrl(filename);
+
+      // Set expiration date
+      const expiresAt = new Date(Date.now() + ExportService.MAX_FILE_AGE);
+
+      return {
+        downloadUrl,
+        filename,
+        format: request.format,
+        size,
+        expiresAt,
+      };
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Export failed: ${error.message}`);
+      }
+      throw new Error('Export failed: Unknown error');
+    }
+  }
+
+  /**
    * Register export processor with queue service
    */
   private registerQueueProcessor(): void {
@@ -308,70 +391,74 @@ export class ExportService {
     content: ExportContent,
     filePath: string
   ): Promise<void> {
-    const children: Paragraph[] = [];
+    try {
+      const children: Paragraph[] = [];
 
-    // Add title
-    children.push(
-      new Paragraph({
-        children: [new TextRun({ text: content.title, bold: true, size: 32 })],
-        heading: HeadingLevel.TITLE,
-      })
-    );
-
-    // Add metadata
-    if (content.metadata.author) {
+      // Add title
       children.push(
         new Paragraph({
-          children: [
-            new TextRun({
-              text: `By ${content.metadata.author}`,
-              italics: true,
-            }),
-          ],
-        })
-      );
-    }
-
-    children.push(new Paragraph({ children: [new TextRun({ text: '' })] })); // Empty line
-
-    // Add chapters
-    for (const chapter of content.chapters) {
-      // Chapter title
-      children.push(
-        new Paragraph({
-          children: [
-            new TextRun({ text: chapter.title, bold: true, size: 24 }),
-          ],
-          heading: HeadingLevel.HEADING_1,
+          children: [new TextRun({ text: content.title, bold: true, size: 32 })],
+          heading: HeadingLevel.TITLE,
         })
       );
 
-      // Chapter content - split by paragraphs
-      const paragraphs = chapter.content.split('\n\n');
-      for (const paragraph of paragraphs) {
-        if (paragraph.trim()) {
-          children.push(
-            new Paragraph({
-              children: [new TextRun({ text: paragraph.trim() })],
-            })
-          );
-        }
+      // Add metadata
+      if (content.metadata.author) {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `By ${content.metadata.author}`,
+                italics: true,
+              }),
+            ],
+          })
+        );
       }
 
-      children.push(new Paragraph({ children: [new TextRun({ text: '' })] })); // Empty line between chapters
+      children.push(new Paragraph({ children: [new TextRun({ text: '' })] })); // Empty line
+
+      // Add chapters
+      for (const chapter of content.chapters) {
+        // Chapter title
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({ text: chapter.title, bold: true, size: 24 }),
+            ],
+            heading: HeadingLevel.HEADING_1,
+          })
+        );
+
+        // Chapter content - split by paragraphs
+        const paragraphs = chapter.content.split('\n\n');
+        for (const paragraph of paragraphs) {
+          if (paragraph.trim()) {
+            children.push(
+              new Paragraph({
+                children: [new TextRun({ text: paragraph.trim() })],
+              })
+            );
+          }
+        }
+
+        children.push(new Paragraph({ children: [new TextRun({ text: '' })] })); // Empty line between chapters
+      }
+
+      const doc = new Document({
+        sections: [
+          {
+            properties: {},
+            children,
+          },
+        ],
+      });
+
+      const buffer = await Packer.toBuffer(doc);
+      await fs.promises.writeFile(filePath, buffer);
+    } catch (error) {
+      throw new Error('DOCX generation failed');
     }
-
-    const doc = new Document({
-      sections: [
-        {
-          properties: {},
-          children,
-        },
-      ],
-    });
-
-    const buffer = await Packer.toBuffer(doc);
-    fs.writeFileSync(filePath, buffer);
   }
 
   /**
@@ -381,16 +468,17 @@ export class ExportService {
     content: ExportContent,
     filePath: string
   ): Promise<void> {
-    // Create HTML content
-    const html = this.generateHtmlContent(content);
-
-    // Launch Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    });
-
+    let browser;
     try {
+      // Create HTML content
+      const html = this.generateHtmlContent(content);
+
+      // Launch Puppeteer
+      browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+
       const page = await browser.newPage();
       await page.setContent(html, { waitUntil: 'networkidle0' });
 
@@ -406,8 +494,12 @@ export class ExportService {
         },
         printBackground: true,
       });
+    } catch (error) {
+      throw new Error('PDF generation failed');
     } finally {
-      await browser.close();
+      if (browser) {
+        await browser.close();
+      }
     }
   }
 
@@ -538,6 +630,14 @@ export class ExportService {
       text += `By ${content.metadata.author}\n\n`;
     }
 
+    if (content.metadata.description) {
+      text += `${content.metadata.description}\n\n`;
+    }
+
+    if (content.metadata.genre) {
+      text += `Genre: ${content.metadata.genre}\n\n`;
+    }
+
     // Add chapters
     for (const chapter of content.chapters) {
       text += `${chapter.title}\n`;
@@ -545,7 +645,7 @@ export class ExportService {
       text += `${chapter.content}\n\n\n`;
     }
 
-    fs.writeFileSync(filePath, text, 'utf8');
+    await fs.promises.writeFile(filePath, text, 'utf8');
   }
 
   /**
@@ -555,41 +655,45 @@ export class ExportService {
     content: ExportContent,
     filePath: string
   ): Promise<void> {
-    const epub = nodepub.document({
-      title: content.title,
-      author: content.metadata.author || 'Unknown Author',
-      genre: content.metadata.genre || 'Fiction',
-      language: content.metadata.language || 'en',
-      publisher: 'QuillHaven',
-      published: content.metadata.publishDate || new Date(),
-      description: content.metadata.description || '',
-    });
-
-    // Add chapters
-    for (const chapter of content.chapters) {
-      // Convert plain text to HTML with proper paragraph formatting
-      const htmlContent = chapter.content
-        .split('\n\n')
-        .map((paragraph) => paragraph.trim())
-        .filter((paragraph) => paragraph.length > 0)
-        .map(
-          (paragraph) =>
-            `<p>${this.escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`
-        )
-        .join('\n');
-
-      epub.addSection(chapter.title, htmlContent);
-    }
-
-    return new Promise((resolve, reject) => {
-      epub.writeEPUB(filePath, (err: unknown) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
+    try {
+      const epub = nodepub.document({
+        title: content.title,
+        author: content.metadata.author || 'Unknown Author',
+        genre: content.metadata.genre || 'Fiction',
+        language: content.metadata.language || 'en',
+        publisher: 'QuillHaven',
+        published: content.metadata.publishDate || new Date(),
+        description: content.metadata.description || '',
       });
-    });
+
+      // Add chapters
+      for (const chapter of content.chapters) {
+        // Convert plain text to HTML with proper paragraph formatting
+        const htmlContent = chapter.content
+          .split('\n\n')
+          .map((paragraph) => paragraph.trim())
+          .filter((paragraph) => paragraph.length > 0)
+          .map(
+            (paragraph) =>
+              `<p>${this.escapeHtml(paragraph).replace(/\n/g, '<br>')}</p>`
+          )
+          .join('\n');
+
+        epub.addSection(chapter.title, htmlContent);
+      }
+
+      return new Promise((resolve, reject) => {
+        epub.writeEPUB(filePath, (err: unknown) => {
+          if (err) {
+            reject(new Error('EPUB generation failed'));
+          } else {
+            resolve();
+          }
+        });
+      });
+    } catch (error) {
+      throw new Error('EPUB generation failed');
+    }
   }
 
   /**
@@ -631,9 +735,151 @@ export class ExportService {
   }
 
   /**
+   * Generate export content from project and chapters
+   */
+  private async generateExportContent(
+    project: any,
+    chapters: any[],
+    includeMetadata: boolean = true
+  ): Promise<ExportContent> {
+    const chapterContent: ChapterContent[] = chapters.map((chapter) => ({
+      id: chapter.id,
+      title: chapter.title,
+      content: chapter.content,
+      order: chapter.order,
+      wordCount: chapter.wordCount,
+    }));
+
+    const metadata: ExportMetadata = includeMetadata
+      ? {
+          title: project.title,
+          author: project.user?.firstName && project.user?.lastName
+            ? `${project.user.firstName} ${project.user.lastName}`
+            : undefined,
+          description: project.description || undefined,
+          genre: project.genre,
+          language: 'en',
+          publishDate: new Date(),
+          version: '1.0',
+        }
+      : {
+          title: project.title,
+          genre: project.genre,
+          language: 'en',
+          publishDate: new Date(),
+          version: '1.0',
+        };
+
+    return {
+      title: project.title,
+      chapters: chapterContent,
+      metadata,
+    };
+  }
+
+  /**
+   * Generate file by format
+   */
+  private async generateFileByFormat(
+    content: ExportContent,
+    format: string,
+    filePath: string
+  ): Promise<void> {
+    try {
+      switch (format.toLowerCase()) {
+        case 'docx':
+          await this.generateDocx(content, filePath);
+          break;
+        case 'pdf':
+          await this.generatePdf(content, filePath);
+          break;
+        case 'txt':
+          await this.generateTxt(content, filePath);
+          break;
+        case 'epub':
+          await this.generateEpub(content, filePath);
+          break;
+        default:
+          throw new Error(`Unsupported format: ${format}`);
+      }
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`${format.toUpperCase()} generation failed`);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Generate TXT export (updated method name for consistency)
+   */
+  private async generateTxtExport(
+    project: any,
+    chapters: any[],
+    includeMetadata: boolean = true,
+    filePath?: string
+  ): Promise<string> {
+    let text = '';
+
+    // Add title and metadata
+    text += `${project.title}\n`;
+    text += '='.repeat(project.title.length) + '\n\n';
+
+    if (includeMetadata) {
+      if (project.description) {
+        text += `${project.description}\n\n`;
+      }
+
+      if (project.genre) {
+        text += `Genre: ${project.genre}\n\n`;
+      }
+    }
+
+    // Add chapters
+    for (const chapter of chapters) {
+      text += `${chapter.title}\n`;
+      text += '-'.repeat(chapter.title.length) + '\n\n';
+      text += `${chapter.content}\n\n\n`;
+    }
+
+    if (filePath) {
+      await fs.promises.writeFile(filePath, text, 'utf8');
+    }
+
+    return text;
+  }
+
+  /**
+   * Get download URL for a filename
+   */
+  private getDownloadUrl(filename: string): string {
+    const token = crypto.randomBytes(16).toString('hex');
+    return `/api/exports/download/${filename}?token=${token}`;
+  }
+
+  /**
    * Clean up expired exports
    */
   async cleanupExpiredExports(): Promise<void> {
+    try {
+      const exportDir = ExportService.EXPORT_DIR;
+      const files = await fs.promises.readdir(exportDir);
+      
+      for (const file of files) {
+        const filePath = path.join(exportDir, file);
+        const stats = await fs.promises.stat(filePath);
+        
+        // Check if file is older than MAX_FILE_AGE
+        if (Date.now() - stats.mtime.getTime() > ExportService.MAX_FILE_AGE) {
+          await fs.promises.unlink(filePath);
+        }
+      }
+    } catch (error) {
+      // Silently handle cleanup errors
+      console.warn('Export cleanup failed:', error);
+    }
+
+    // Also clean up database records
     const expiredExports = await prisma.export.findMany({
       where: {
         expiresAt: {
@@ -660,7 +906,29 @@ export class ExportService {
   }
 
   /**
-   * Get user's export history
+   * Get export history for a user
+   */
+  async getExportHistory(userId: string, limit: number = 50): Promise<any[]> {
+    try {
+      const exports = await prisma.export.findMany({
+        where: {
+          userId: userId,
+        },
+        orderBy: {
+          createdAt: 'desc',
+        },
+        take: limit,
+      });
+
+      return exports;
+    } catch (error) {
+      console.error('Failed to get export history:', error);
+      throw new Error('Failed to retrieve export history');
+    }
+  }
+
+  /**
+   * Get user's export history (legacy method)
    */
   async getUserExports(
     userId: string,

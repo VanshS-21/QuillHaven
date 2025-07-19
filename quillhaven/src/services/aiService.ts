@@ -61,10 +61,7 @@ export class AIService {
           ), // Rough token estimation
         };
 
-        const response = await this.model.generateContent({
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig,
-        });
+        const response = await this.model.generateContent(prompt);
 
         return response;
       });
@@ -76,11 +73,15 @@ export class AIService {
         content,
         wordCount,
         generatedAt: new Date(),
-        contextUsed: this.extractContextIds(request.projectContext),
-        suggestions: this.extractSuggestions(content),
+        parameters: request.parameters,
       };
     } catch (error) {
-      throw this.handleError(error);
+      const aiError = this.handleError(error);
+      throw new AIServiceError(
+        `Failed to generate chapter: ${aiError.message}`,
+        aiError.code,
+        aiError.retryable
+      );
     }
   }
 
@@ -137,7 +138,7 @@ export class AIService {
     prompt += `**Writing Style:** ${projectContext.writingStyle}\n\n`;
 
     // Characters context
-    if (projectContext.characters.length > 0) {
+    if (projectContext.characters && projectContext.characters.length > 0) {
       prompt += `**Characters:**\n`;
       projectContext.characters.forEach((char) => {
         prompt += `- ${char.name} (${char.role}): ${char.description}\n`;
@@ -149,7 +150,7 @@ export class AIService {
     }
 
     // Plot threads context
-    if (projectContext.plotThreads.length > 0) {
+    if (projectContext.plotThreads && projectContext.plotThreads.length > 0) {
       prompt += `**Active Plot Threads:**\n`;
       projectContext.plotThreads.forEach((plot) => {
         prompt += `- ${plot.title} (${plot.status}): ${plot.description}\n`;
@@ -158,16 +159,17 @@ export class AIService {
     }
 
     // World building context
-    if (projectContext.worldElements.length > 0) {
+    const worldElements = projectContext.worldElements || (projectContext as any).worldBuilding || [];
+    if (worldElements && worldElements.length > 0) {
       prompt += `**World Building:**\n`;
-      projectContext.worldElements.forEach((element) => {
+      worldElements.forEach((element: any) => {
         prompt += `- ${element.name} (${element.type}): ${element.description}\n`;
       });
       prompt += '\n';
     }
 
     // Timeline context
-    if (projectContext.timelineEvents.length > 0) {
+    if (projectContext.timelineEvents && projectContext.timelineEvents.length > 0) {
       prompt += `**Timeline Events:**\n`;
       projectContext.timelineEvents
         .sort((a, b) => a.importance - b.importance)
@@ -192,18 +194,22 @@ export class AIService {
     prompt += `- Tone: ${parameters.tone}\n`;
     prompt += `- Style: ${parameters.style}\n`;
 
-    if (parameters.focusCharacters.length > 0) {
+    if (parameters.focusCharacters && parameters.focusCharacters.length > 0 && projectContext.characters) {
       const focusChars = projectContext.characters
         .filter((char) => parameters.focusCharacters.includes(char.id))
         .map((char) => char.name);
-      prompt += `- Focus on characters: ${focusChars.join(', ')}\n`;
+      if (focusChars.length > 0) {
+        prompt += `- Focus on characters: ${focusChars.join(', ')}\n`;
+      }
     }
 
-    if (parameters.plotPoints.length > 0) {
+    if (parameters.plotPoints && parameters.plotPoints.length > 0 && projectContext.plotThreads) {
       const focusPlots = projectContext.plotThreads
         .filter((plot) => parameters.plotPoints.includes(plot.id))
         .map((plot) => plot.title);
-      prompt += `- Advance plot threads: ${focusPlots.join(', ')}\n`;
+      if (focusPlots.length > 0) {
+        prompt += `- Advance plot threads: ${focusPlots.join(', ')}\n`;
+      }
     }
 
     // User's specific prompt
@@ -228,9 +234,10 @@ export class AIService {
     return `Analyze the following text and extract key story elements. Return your analysis in JSON format with the following structure:
 
 {
-  "extractedCharacters": ["character names mentioned"],
-  "extractedPlotPoints": ["plot developments or events"],
-  "extractedWorldElements": ["locations, rules, or world-building details"],
+  "characters": ["character names mentioned"],
+  "locations": ["locations, places, or settings mentioned"],
+  "plotPoints": ["plot developments or events"],
+  "themes": ["themes or motifs identified"],
   "inconsistencies": [{"type": "character|plot|world|timeline", "description": "issue description", "severity": "low|medium|high"}],
   "suggestions": ["improvement suggestions"]
 }
@@ -251,7 +258,8 @@ ${content}`;
     prompt += `**Established Context:**\n`;
     prompt += `Characters: ${context.characters.map((c) => `${c.name} - ${c.description}`).join('; ')}\n`;
     prompt += `Plot Threads: ${context.plotThreads.map((p) => `${p.title} - ${p.description}`).join('; ')}\n`;
-    prompt += `World Elements: ${context.worldElements.map((w) => `${w.name} - ${w.description}`).join('; ')}\n\n`;
+    const worldElements = context.worldElements || (context as any).worldBuilding || [];
+    prompt += `World Elements: ${worldElements.map((w: any) => `${w.name} - ${w.description}`).join('; ')}\n\n`;
 
     prompt += `**New Content to Check:**\n${newContent}\n\n`;
 
@@ -368,8 +376,10 @@ ${content}`;
       );
     }
 
-    // Generic error
-    return new AIServiceError(message, 'UNKNOWN_ERROR', false);
+    // Generic error - make it retryable by default unless it's clearly non-retryable
+    const isRetryable = !message.toLowerCase().includes('invalid') && 
+                       !message.toLowerCase().includes('unauthorized');
+    return new AIServiceError(message, 'UNKNOWN_ERROR', isRetryable);
   }
 
   /**
@@ -383,10 +393,11 @@ ${content}`;
   }
 
   private extractContextIds(context: ProjectContextForAI): string[] {
+    const worldElements = context.worldElements || (context as any).worldBuilding || [];
     return [
-      ...context.characters.map((c) => c.id),
-      ...context.plotThreads.map((p) => p.id),
-      ...context.worldElements.map((w) => w.id),
+      ...(context.characters || []).map((c) => c.id),
+      ...(context.plotThreads || []).map((p) => p.id),
+      ...worldElements.map((w: any) => w.id),
     ];
   }
 
@@ -423,20 +434,20 @@ ${content}`;
     try {
       const parsed = JSON.parse(response);
       return {
-        extractedCharacters: parsed.extractedCharacters || [],
-        extractedPlotPoints: parsed.extractedPlotPoints || [],
-        extractedWorldElements: parsed.extractedWorldElements || [],
+        characters: parsed.characters || parsed.extractedCharacters || [],
+        locations: parsed.locations || parsed.extractedWorldElements || [],
+        plotPoints: parsed.plotPoints || parsed.extractedPlotPoints || [],
+        themes: parsed.themes || [],
         inconsistencies: parsed.inconsistencies || [],
         suggestions: parsed.suggestions || [],
       };
     } catch {
       // Fallback if JSON parsing fails
       return {
-        extractedCharacters: [],
-        extractedPlotPoints: [],
-        extractedWorldElements: [],
-        inconsistencies: [],
-        suggestions: ['Unable to parse analysis response'],
+        characters: [],
+        locations: [],
+        plotPoints: [],
+        themes: [],
       };
     }
   }

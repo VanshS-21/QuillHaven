@@ -6,8 +6,10 @@ import DOMPurify from 'isomorphic-dompurify';
 
 export interface ValidationResult {
   isValid: boolean;
-  errors: string[];
+  errors: string[] | Record<string, string[]>;
   sanitizedData?: unknown;
+  sanitized?: Record<string, any>;
+  wordCount?: number;
 }
 
 export interface ValidationOptions {
@@ -145,15 +147,28 @@ export function validateNumber(
 }
 
 /**
- * Sanitize HTML content to prevent XSS attacks
+ * Sanitize HTML content to prevent XSS attacks while preserving safe formatting
+ * Optimized for performance with large text inputs
  */
 export function sanitizeHtml(html: string): string {
+  if (!html || typeof html !== 'string') {
+    return '';
+  }
+
+  // Performance optimization: limit input size to prevent DoS attacks
+  const MAX_HTML_LENGTH = 1000000; // 1MB limit
+  if (html.length > MAX_HTML_LENGTH) {
+    throw new Error('HTML content too large for sanitization');
+  }
+
   return DOMPurify.sanitize(html, {
     ALLOWED_TAGS: [
       'p',
       'br',
       'strong',
+      'b',
       'em',
+      'i',
       'u',
       'h1',
       'h2',
@@ -166,12 +181,13 @@ export function sanitizeHtml(html: string): string {
       'li',
       'blockquote',
       'a',
-      'img',
       'div',
       'span',
     ],
-    ALLOWED_ATTR: ['href', 'src', 'alt', 'title', 'class'],
+    ALLOWED_ATTR: ['href', 'alt', 'title'],
     ALLOW_DATA_ATTR: false,
+    FORBID_ATTR: ['onclick', 'onload', 'onerror', 'onmouseover', 'onfocus', 'onblur'],
+    FORBID_TAGS: ['script', 'object', 'embed', 'form', 'input', 'textarea', 'select', 'button'],
   });
 }
 
@@ -351,4 +367,387 @@ export class RateLimitStore {
       }
     }
   }
+}
+
+// Project and Chapter Validation Interfaces
+export interface ProjectData {
+  title: string;
+  description?: string;
+  genre: string;
+  targetLength: number;
+}
+
+export interface ChapterData {
+  title: string;
+  content: string;
+}
+
+export interface ExportRequest {
+  projectId: string;
+  format: 'pdf' | 'docx' | 'txt' | 'epub';
+  includeMetadata?: boolean;
+  chapterIds?: string[];
+}
+
+// Valid genres list
+const VALID_GENRES = [
+  'Fantasy',
+  'Science Fiction',
+  'Mystery',
+  'Romance',
+  'Thriller',
+  'Horror',
+  'Historical Fiction',
+  'Literary Fiction',
+  'Young Adult',
+  'Children',
+  'Non-Fiction',
+  'Biography',
+  'Memoir',
+  'Self-Help',
+  'Business',
+  'Health',
+  'Travel',
+  'Cooking',
+  'Art',
+  'Religion',
+  'Philosophy',
+  'Poetry',
+  'Drama',
+  'Comedy',
+  'Adventure',
+  'Western',
+  'Crime',
+  'Dystopian',
+  'Utopian',
+  'Alternate History',
+  'Steampunk',
+  'Cyberpunk',
+  'Urban Fantasy',
+  'Paranormal',
+  'Contemporary',
+  'Classic',
+  'Experimental',
+  'Other'
+];
+
+// Performance and security constants
+const MAX_INPUT_LENGTH = 100000; // 100KB limit for text inputs
+const REDOS_TIMEOUT = 1000; // 1 second timeout for regex operations
+
+/**
+ * Safe regex execution with timeout to prevent ReDoS attacks
+ */
+function safeRegexTest(pattern: RegExp, text: string, timeoutMs: number = REDOS_TIMEOUT): boolean {
+  const startTime = Date.now();
+  
+  try {
+    // Simple length check to prevent obvious ReDoS attempts
+    if (text.length > MAX_INPUT_LENGTH) {
+      return false;
+    }
+    
+    const result = pattern.test(text);
+    
+    // Check if execution took too long
+    if (Date.now() - startTime > timeoutMs) {
+      console.warn('Regex execution timeout detected, possible ReDoS attack');
+      return false;
+    }
+    
+    return result;
+  } catch (error) {
+    console.warn('Regex execution error:', error);
+    return false;
+  }
+}
+
+/**
+ * Validate project data with comprehensive validation rules
+ * Includes performance optimizations and ReDoS attack prevention
+ */
+export function validateProjectData(data: ProjectData): ValidationResult {
+  const errors: Record<string, string[]> = {};
+  const sanitized: Record<string, any> = {};
+
+  // Performance check: prevent processing of extremely large inputs
+  const totalInputSize = (data.title?.length || 0) + (data.description?.length || 0) + (data.genre?.length || 0);
+  if (totalInputSize > MAX_INPUT_LENGTH) {
+    return {
+      isValid: false,
+      errors: { general: ['Input data too large'] },
+    };
+  }
+
+  // Validate title
+  if (!data.title || !data.title.trim()) {
+    errors.title = ['Title is required'];
+  } else {
+    const title = data.title.trim();
+    if (title.length > 200) {
+      errors.title = ['Title must be less than 200 characters'];
+    } else {
+      try {
+        // Sanitize HTML in title with error handling
+        sanitized.title = sanitizeHtml(title);
+      } catch (error) {
+        errors.title = ['Title contains invalid content'];
+      }
+    }
+  }
+
+  // Validate description (optional)
+  if (data.description !== undefined) {
+    if (data.description.length > 1000) {
+      errors.description = ['Description must be less than 1000 characters'];
+    } else {
+      try {
+        // Sanitize HTML in description with error handling
+        sanitized.description = sanitizeHtml(data.description);
+      } catch (error) {
+        errors.description = ['Description contains invalid content'];
+      }
+    }
+  }
+
+  // Validate genre
+  if (!data.genre || !data.genre.trim()) {
+    errors.genre = ['Genre is required'];
+  } else {
+    const genre = data.genre.trim();
+    if (genre.length > 50) {
+      errors.genre = ['Genre must be less than 50 characters'];
+    } else if (!VALID_GENRES.includes(genre)) {
+      errors.genre = ['Invalid genre selected'];
+    } else {
+      sanitized.genre = genre;
+    }
+  }
+
+  // Validate target length
+  if (typeof data.targetLength !== 'number' || isNaN(data.targetLength)) {
+    errors.targetLength = ['Target length must be a valid number'];
+  } else if (data.targetLength <= 0) {
+    errors.targetLength = ['Target length must be greater than 0'];
+  } else if (data.targetLength > 5000000) {
+    errors.targetLength = ['Target length must be less than 5,000,000 words'];
+  } else {
+    sanitized.targetLength = data.targetLength;
+  }
+
+  const hasErrors = Object.keys(errors).length > 0;
+
+  return {
+    isValid: !hasErrors,
+    errors: hasErrors ? errors : {},
+    sanitized: hasErrors ? undefined : sanitized,
+  };
+}
+
+/**
+ * Validate chapter data with content validation
+ * Includes performance optimizations for large text processing
+ */
+export function validateChapterData(data: ChapterData): ValidationResult {
+  const errors: Record<string, string[]> = {};
+  const sanitized: Record<string, any> = {};
+
+  // Validate title
+  if (!data.title || !data.title.trim()) {
+    errors.title = ['Title is required'];
+  } else {
+    const title = data.title.trim();
+    if (title.length > 300) {
+      errors.title = ['Title must be less than 300 characters'];
+    } else {
+      try {
+        sanitized.title = sanitizeHtml(title);
+      } catch (error) {
+        errors.title = ['Title contains invalid content'];
+      }
+    }
+  }
+
+  // Validate content
+  if (!data.content || !data.content.trim()) {
+    errors.content = ['Content is required'];
+  } else {
+    const content = data.content.trim();
+    if (content.length > 100000) {
+      errors.content = ['Content must be less than 100,000 characters'];
+    } else {
+      try {
+        // Sanitize HTML in content, preserving safe formatting tags
+        sanitized.content = sanitizeHtml(content);
+      } catch (error) {
+        errors.content = ['Content contains invalid content'];
+      }
+    }
+  }
+
+  const hasErrors = Object.keys(errors).length > 0;
+  
+  // Calculate word count with performance optimization
+  let wordCount = 0;
+  if (data.content && !hasErrors) {
+    try {
+      wordCount = validateWordCount(data.content);
+    } catch (error) {
+      console.warn('Word count calculation failed:', error);
+      wordCount = 0;
+    }
+  }
+
+  return {
+    isValid: !hasErrors,
+    errors: hasErrors ? errors : {},
+    sanitized: hasErrors ? undefined : sanitized,
+    wordCount,
+  };
+}
+
+/**
+ * Validate export request data
+ */
+export function validateExportRequest(data: ExportRequest): ValidationResult {
+  const errors: Record<string, string[]> = {};
+
+  // Validate project ID
+  if (!data.projectId || !data.projectId.trim()) {
+    errors.projectId = ['Project ID is required'];
+  }
+
+  // Validate format
+  const validFormats = ['pdf', 'docx', 'txt', 'epub'];
+  if (!data.format || !validFormats.includes(data.format)) {
+    errors.format = ['Format must be one of: pdf, docx, txt, epub'];
+  }
+
+  // Validate includeMetadata (optional boolean)
+  if (data.includeMetadata !== undefined && typeof data.includeMetadata !== 'boolean') {
+    errors.includeMetadata = ['Include metadata must be a boolean value'];
+  }
+
+  // Validate chapter IDs (optional array)
+  if (data.chapterIds !== undefined) {
+    if (!Array.isArray(data.chapterIds)) {
+      errors.chapterIds = ['Chapter IDs must be an array'];
+    } else if (data.chapterIds.length === 0) {
+      errors.chapterIds = ['Chapter IDs array cannot be empty'];
+    } else {
+      // Check for empty strings in array
+      const hasEmptyIds = data.chapterIds.some(id => !id || !id.trim());
+      if (hasEmptyIds) {
+        errors.chapterIds = ['Chapter IDs cannot contain empty values'];
+      }
+    }
+  }
+
+  const hasErrors = Object.keys(errors).length > 0;
+
+  return {
+    isValid: !hasErrors,
+    errors: hasErrors ? errors : {},
+  };
+}
+
+/**
+ * Count words in text accurately with performance optimization
+ * Handles Unicode characters, contractions, and hyphens properly
+ */
+export function validateWordCount(text: string): number {
+  if (!text || typeof text !== 'string') {
+    return 0;
+  }
+
+  // Performance optimization: limit text size
+  if (text.length > MAX_INPUT_LENGTH) {
+    throw new Error('Text too large for word counting');
+  }
+
+  // Remove HTML tags for accurate word counting (optimized regex)
+  const plainText = text.replace(/<[^>]*?>/g, '');
+  
+  // Handle empty or whitespace-only text
+  if (!plainText.trim()) {
+    return 0;
+  }
+  
+  // Performance optimization: use simpler regex for very large texts
+  if (plainText.length > 50000) {
+    // For large texts, use a simpler but faster approach
+    const words = plainText.trim().split(/\s+/).filter(word => word.length > 0);
+    return words.length;
+  }
+  
+  // Split by word boundaries to handle contractions, hyphens, and Unicode properly
+  // This regex matches sequences of word characters including Unicode letters
+  const words = plainText.match(/[\w\u00C0-\u024F\u1E00-\u1EFF\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\u4E00-\u9FFF\u3400-\u4DBF\u20000-\u2A6DF\u2A700-\u2B73F\u2B740-\u2B81F\u2B820-\u2CEAF\uF900-\uFAFF\u2F800-\u2FA1F\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF\uFB50-\uFDFF\uFE70-\uFEFF]+/g);
+  
+  return words ? words.length : 0;
+}
+
+/**
+ * Validate file size with configurable limits
+ */
+export function validateFileSize(size: number, maxSize: number = 5 * 1024 * 1024): boolean {
+  if (typeof size !== 'number' || size <= 0) {
+    return false;
+  }
+  
+  return size <= maxSize;
+}
+
+/**
+ * Validate image upload with comprehensive checks
+ */
+export function validateImageUpload(file: any): ValidationResult {
+  const errors: string[] = [];
+
+  // Check if file object has required properties
+  if (!file || typeof file !== 'object') {
+    errors.push('Invalid file object');
+    return { isValid: false, errors };
+  }
+
+  if (!file.name || typeof file.name !== 'string') {
+    errors.push('File name is required');
+  }
+
+  if (!file.type || typeof file.type !== 'string') {
+    errors.push('File type is required');
+  }
+
+  if (typeof file.size !== 'number') {
+    errors.push('File size is required');
+  }
+
+  // If basic properties are missing, return early
+  if (errors.length > 0) {
+    return { isValid: false, errors };
+  }
+
+  // Validate file type
+  const validImageTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+  if (!validImageTypes.includes(file.type)) {
+    errors.push('File must be an image');
+  }
+
+  // Validate file size (10MB limit for images)
+  const maxSize = 10 * 1024 * 1024; // 10MB
+  if (file.size > maxSize) {
+    errors.push('File size must be less than 10MB');
+  }
+
+  // Validate file extension
+  const validExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
+  const fileExtension = file.name.split('.').pop()?.toLowerCase();
+  if (!fileExtension || !validExtensions.includes(fileExtension)) {
+    errors.push('Invalid file extension');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
 }

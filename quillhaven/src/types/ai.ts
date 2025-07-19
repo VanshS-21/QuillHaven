@@ -25,8 +25,7 @@ export interface ChapterGenerationResponse {
   content: string;
   wordCount: number;
   generatedAt: Date;
-  contextUsed: string[]; // IDs of context elements used
-  suggestions?: string[]; // Optional suggestions for improvement
+  parameters: ChapterGenerationParameters;
 }
 
 export interface ProjectContextForAI {
@@ -40,11 +39,12 @@ export interface ProjectContextForAI {
 }
 
 export interface ContextAnalysis {
-  extractedCharacters: string[];
-  extractedPlotPoints: string[];
-  extractedWorldElements: string[];
-  inconsistencies: ConsistencyIssue[];
-  suggestions: string[];
+  characters: string[];
+  locations: string[];
+  plotPoints: string[];
+  themes: string[];
+  inconsistencies?: ConsistencyIssue[];
+  suggestions?: string[];
 }
 
 export interface ConsistencyIssue {

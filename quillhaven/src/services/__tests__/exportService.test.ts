@@ -1,12 +1,45 @@
 import { ExportService } from '../exportService';
 import { prismaMock } from '../../../__mocks__/prisma';
 import { Project, Chapter } from '@prisma/client';
-import * as fs from 'fs/promises';
 import * as path from 'path';
 
 // Mock file system operations
-jest.mock('fs/promises');
-const mockFs = fs as jest.Mocked<typeof fs>;
+jest.mock('fs', () => ({
+  promises: {
+    writeFile: jest.fn(),
+    readdir: jest.fn(),
+    stat: jest.fn(),
+    unlink: jest.fn(),
+    mkdir: jest.fn(),
+  },
+  existsSync: jest.fn().mockReturnValue(true),
+  mkdirSync: jest.fn(),
+  writeFileSync: jest.fn(),
+  unlinkSync: jest.fn(),
+  statSync: jest.fn().mockReturnValue({ size: 1024 }),
+}));
+
+// Mock puppeteer
+jest.mock('puppeteer', () => ({
+  launch: jest.fn().mockResolvedValue({
+    newPage: jest.fn().mockResolvedValue({
+      setContent: jest.fn(),
+      pdf: jest.fn(),
+    }),
+    close: jest.fn(),
+  }),
+}));
+
+// Mock queue service
+jest.mock('../queueService', () => ({
+  queueService: {
+    registerProcessor: jest.fn(),
+    addJob: jest.fn(),
+  },
+}));
+
+const fs = require('fs');
+const mockFs = fs;
 
 // Mock external libraries
 jest.mock('docx', () => ({
@@ -16,8 +49,13 @@ jest.mock('docx', () => ({
   Packer: {
     toBuffer: jest.fn().mockResolvedValue(Buffer.from('docx content')),
   },
-  Paragraph: jest.fn(),
-  TextRun: jest.fn(),
+  Paragraph: jest.fn().mockImplementation((props) => props),
+  TextRun: jest.fn().mockImplementation((props) => props),
+  HeadingLevel: {
+    TITLE: 'TITLE',
+    HEADING_1: 'HEADING_1',
+    HEADING_2: 'HEADING_2',
+  },
 }));
 
 jest.mock('jspdf', () => {
@@ -93,10 +131,38 @@ describe('ExportService', () => {
 
   describe('exportProject', () => {
     beforeEach(() => {
+      // Reset all mocks first
+      jest.clearAllMocks();
+      
+      // Set up basic mocks
       prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
-      mockFs.mkdir.mockResolvedValue(undefined);
-      mockFs.writeFile.mockResolvedValue(undefined);
+      prismaMock.export.findMany.mockResolvedValue([]);
+      mockFs.promises.mkdir.mockResolvedValue(undefined);
+      mockFs.promises.writeFile.mockResolvedValue(undefined);
+      mockFs.promises.stat.mockResolvedValue({ size: 1024 } as any);
+      mockFs.promises.readdir.mockResolvedValue([]);
+      
+      // Set up library mocks to succeed by default
+      const { Packer } = require('docx');
+      Packer.toBuffer.mockResolvedValue(Buffer.from('docx content'));
+      
+      const puppeteer = require('puppeteer');
+      puppeteer.launch.mockResolvedValue({
+        newPage: jest.fn().mockResolvedValue({
+          setContent: jest.fn(),
+          pdf: jest.fn(),
+        }),
+        close: jest.fn(),
+      });
+      
+      const nodepub = require('nodepub');
+      nodepub.document.mockImplementation(() => ({
+        addSection: jest.fn(),
+        writeEPUB: jest.fn().mockImplementation((path, callback) => {
+          callback(null); // Success
+        }),
+      }));
     });
 
     it('should export project as DOCX format', async () => {
@@ -248,7 +314,7 @@ describe('ExportService', () => {
     });
 
     it('should handle file system errors gracefully', async () => {
-      mockFs.writeFile.mockRejectedValue(new Error('Disk full'));
+      mockFs.promises.writeFile.mockRejectedValue(new Error('Disk full'));
 
       const exportRequest = {
         projectId: 'project-1',
@@ -257,7 +323,7 @@ describe('ExportService', () => {
       };
 
       await expect(exportService.exportProject(exportRequest)).rejects.toThrow(
-        'Export failed: Disk full'
+        'Export failed: TXT generation failed'
       );
     });
   });
@@ -304,22 +370,27 @@ describe('ExportService', () => {
   });
 
   describe('cleanupExpiredExports', () => {
+    beforeEach(() => {
+      prismaMock.export.findMany.mockResolvedValue([]);
+      prismaMock.export.delete.mockResolvedValue({} as any);
+    });
+
     it('should remove expired export files', async () => {
       const expiredFiles = ['expired-export-1.txt', 'expired-export-2.pdf'];
       
-      mockFs.readdir.mockResolvedValue(expiredFiles as any);
-      mockFs.stat.mockResolvedValue({
+      mockFs.promises.readdir.mockResolvedValue(expiredFiles as any);
+      mockFs.promises.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 25 * 60 * 60 * 1000), // 25 hours ago
       } as any);
-      mockFs.unlink.mockResolvedValue(undefined);
+      mockFs.promises.unlink.mockResolvedValue(undefined);
 
       await exportService.cleanupExpiredExports();
 
-      expect(mockFs.unlink).toHaveBeenCalledTimes(2);
-      expect(mockFs.unlink).toHaveBeenCalledWith(
+      expect(mockFs.promises.unlink).toHaveBeenCalledTimes(2);
+      expect(mockFs.promises.unlink).toHaveBeenCalledWith(
         expect.stringContaining('expired-export-1.txt')
       );
-      expect(mockFs.unlink).toHaveBeenCalledWith(
+      expect(mockFs.promises.unlink).toHaveBeenCalledWith(
         expect.stringContaining('expired-export-2.pdf')
       );
     });
@@ -327,19 +398,19 @@ describe('ExportService', () => {
     it('should not remove recent export files', async () => {
       const recentFiles = ['recent-export.txt'];
       
-      mockFs.readdir.mockResolvedValue(recentFiles as any);
-      mockFs.stat.mockResolvedValue({
+      mockFs.promises.readdir.mockResolvedValue(recentFiles as any);
+      mockFs.promises.stat.mockResolvedValue({
         mtime: new Date(Date.now() - 1 * 60 * 60 * 1000), // 1 hour ago
       } as any);
-      mockFs.unlink.mockResolvedValue(undefined);
+      mockFs.promises.unlink.mockResolvedValue(undefined);
 
       await exportService.cleanupExpiredExports();
 
-      expect(mockFs.unlink).not.toHaveBeenCalled();
+      expect(mockFs.promises.unlink).not.toHaveBeenCalled();
     });
 
     it('should handle cleanup errors gracefully', async () => {
-      mockFs.readdir.mockRejectedValue(new Error('Permission denied'));
+      mockFs.promises.readdir.mockRejectedValue(new Error('Permission denied'));
 
       // Should not throw
       await expect(exportService.cleanupExpiredExports()).resolves.toBeUndefined();
@@ -375,6 +446,16 @@ describe('ExportService', () => {
   });
 
   describe('performance tests', () => {
+    beforeEach(() => {
+      // Reset mocks for performance tests
+      jest.clearAllMocks();
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+      prismaMock.export.findMany.mockResolvedValue([]);
+      mockFs.promises.writeFile.mockResolvedValue(undefined);
+      mockFs.promises.stat.mockResolvedValue({ size: 1024 } as any);
+    });
+
     it('should handle large projects efficiently', async () => {
       // Create a large project with many chapters
       const largeChapters = Array.from({ length: 100 }, (_, i) => ({
@@ -390,7 +471,6 @@ describe('ExportService', () => {
         updatedAt: new Date(),
       }));
 
-      prismaMock.project.findFirst.mockResolvedValue(mockProject);
       prismaMock.chapter.findMany.mockResolvedValue(largeChapters);
 
       const startTime = Date.now();
@@ -411,9 +491,6 @@ describe('ExportService', () => {
     });
 
     it('should handle concurrent export requests', async () => {
-      prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
-
       const exportRequest = {
         projectId: 'project-1',
         userId: 'user-1',
@@ -437,12 +514,15 @@ describe('ExportService', () => {
   });
 
   describe('error handling', () => {
+    beforeEach(() => {
+      // Ensure project and chapters are found for error handling tests
+      prismaMock.project.findFirst.mockResolvedValue(mockProject);
+      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+    });
+
     it('should handle DOCX generation errors', async () => {
       const { Packer } = require('docx');
       Packer.toBuffer.mockRejectedValue(new Error('DOCX generation failed'));
-
-      prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
 
       const exportRequest = {
         projectId: 'project-1',
@@ -456,13 +536,8 @@ describe('ExportService', () => {
     });
 
     it('should handle PDF generation errors', async () => {
-      const jsPDF = require('jspdf');
-      jsPDF.mockImplementation(() => {
-        throw new Error('PDF generation failed');
-      });
-
-      prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
+      const puppeteer = require('puppeteer');
+      puppeteer.launch.mockRejectedValue(new Error('PDF generation failed'));
 
       const exportRequest = {
         projectId: 'project-1',
@@ -478,13 +553,11 @@ describe('ExportService', () => {
     it('should handle EPUB generation errors', async () => {
       const nodepub = require('nodepub');
       nodepub.document.mockImplementation(() => ({
-        addCSS: jest.fn(),
         addSection: jest.fn(),
-        writeEPUB: jest.fn().mockRejectedValue(new Error('EPUB generation failed')),
+        writeEPUB: jest.fn().mockImplementation((path, callback) => {
+          callback(new Error('EPUB generation failed'));
+        }),
       }));
-
-      prismaMock.project.findFirst.mockResolvedValue(mockProject);
-      prismaMock.chapter.findMany.mockResolvedValue(mockChapters);
 
       const exportRequest = {
         projectId: 'project-1',

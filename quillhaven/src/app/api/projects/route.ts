@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { withApiCache } from '@/lib/apiCache';
-import { listProjects } from '@/services/projectService';
+import { listProjects, createProject } from '@/services/projectService';
 import { parsePaginationParams, parseSearchParams } from '@/utils/pagination';
 import {
   withAuth,
@@ -10,6 +10,7 @@ import {
 import {
   withErrorHandler,
   AuthenticationError,
+  ValidationError,
   handleDatabaseError,
 } from '@/lib/errorHandler';
 import { logger, PerformanceLogger } from '@/lib/logger';
@@ -94,6 +95,68 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
   });
 }
 
+async function handleCreateProject(req: NextRequest): Promise<NextResponse> {
+  const user = (req as AuthenticatedRequest).user;
+
+  // Check if user is authenticated
+  if (!user) {
+    throw new AuthenticationError();
+  }
+
+  let body;
+  try {
+    body = await req.json();
+  } catch (error) {
+    throw new ValidationError('Invalid JSON in request body');
+  }
+
+  const { title, description, genre, targetLength } = body;
+
+  // Validate required fields
+  if (!title || typeof title !== 'string' || title.trim().length === 0) {
+    throw new ValidationError('Title is required and must be a non-empty string');
+  }
+
+  if (!genre || typeof genre !== 'string' || genre.trim().length === 0) {
+    throw new ValidationError('Genre is required and must be a non-empty string');
+  }
+
+  if (targetLength && (typeof targetLength !== 'number' || targetLength <= 0)) {
+    throw new ValidationError('Target length must be a positive number');
+  }
+
+  // Create project with performance monitoring
+  const project = await PerformanceLogger.measureAsync(
+    'create_project',
+    async () => {
+      try {
+        return await createProject(user.id, {
+          title: title.trim(),
+          description: description?.trim(),
+          genre: genre.trim(),
+          targetLength: targetLength || 50000,
+        });
+      } catch (error) {
+        throw handleDatabaseError(error);
+      }
+    },
+    {
+      userId: user.id,
+      title: title.trim(),
+      genre: genre.trim(),
+    }
+  );
+
+  logger.info('Project created successfully', {
+    userId: user.id,
+    projectId: project.id,
+    title: project.title,
+    genre: project.genre,
+  });
+
+  return NextResponse.json(project, { status: 201 });
+}
+
 // Apply error handling, rate limiting, and caching middleware
 export const GET = withErrorHandler(
   withRateLimit({
@@ -112,4 +175,11 @@ export const GET = withErrorHandler(
       })
     )
   )
+);
+
+export const POST = withErrorHandler(
+  withRateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    maxRequests: 20, // 20 project creations per minute
+  })(withAuth(handleCreateProject))
 );
