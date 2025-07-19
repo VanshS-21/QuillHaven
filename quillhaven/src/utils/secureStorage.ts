@@ -361,8 +361,8 @@ export class SessionStorage {
     const prefix = `${this.namespace}_`;
     const keysToRemove: string[] = [];
     
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
+    for (let i = 0; i < window.sessionStorage.length; i++) {
+      const key = window.sessionStorage.key(i);
       if (key && key.startsWith(prefix)) {
         keysToRemove.push(key);
       }

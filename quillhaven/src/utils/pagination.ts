@@ -51,3 +51,50 @@ export function createPaginationQuery(
     take: safeLimit,
   };
 }
+
+export interface PaginationParams {
+  page: number;
+  limit: number;
+}
+
+export interface PaginationOptions {
+  limit?: number;
+  maxLimit?: number;
+}
+
+export function parsePaginationParams(
+  searchParams: URLSearchParams,
+  options: PaginationOptions = {}
+): PaginationParams {
+  const defaultLimit = options.limit || 10;
+  const maxLimit = options.maxLimit || 100;
+
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10));
+  const limit = Math.min(
+    maxLimit,
+    Math.max(1, parseInt(searchParams.get('limit') || defaultLimit.toString(), 10))
+  );
+
+  return { page, limit };
+}
+
+export interface SearchParams {
+  query?: string;
+  filters?: Record<string, string>;
+}
+
+export function parseSearchParams(searchParams: URLSearchParams): SearchParams {
+  const query = searchParams.get('search') || searchParams.get('q') || undefined;
+  const filters: Record<string, string> = {};
+
+  // Extract common filter parameters
+  const filterKeys = ['status', 'genre', 'sortBy', 'sortOrder'];
+  filterKeys.forEach(key => {
+    const value = searchParams.get(key);
+    if (value) {
+      filters[key] = value;
+    }
+  });
+
+  return { query, filters };
+}

@@ -51,13 +51,24 @@ export async function createProject(
   data: CreateProjectData
 ): Promise<Project> {
   try {
+    // Validate input data
+    if (!data.title || data.title.trim().length === 0) {
+      throw new Error('Title is required');
+    }
+    if (!data.genre || data.genre.trim().length === 0) {
+      throw new Error('Genre is required');
+    }
+    if (data.targetLength && data.targetLength < 1000) {
+      throw new Error('Target length must be at least 1,000 words');
+    }
+
     const project = await prisma.project.create({
       data: {
         userId,
-        title: data.title,
-        description: data.description,
-        genre: data.genre,
-        targetLength: data.targetLength,
+        title: data.title.trim(),
+        description: data.description?.trim(),
+        genre: data.genre.trim(),
+        targetLength: data.targetLength || 50000,
         status: 'DRAFT',
         currentWordCount: 0,
       },
@@ -74,6 +85,9 @@ export async function createProject(
     return project;
   } catch (error) {
     console.error('Error creating project:', error);
+    if (error instanceof Error && error.message.includes('required')) {
+      throw error; // Re-throw validation errors
+    }
     throw new Error('Failed to create project');
   }
 }
@@ -138,6 +152,17 @@ export async function updateProject(
   data: UpdateProjectData
 ): Promise<Project | null> {
   try {
+    // Validate input data
+    if (data.title !== undefined && data.title.trim().length === 0) {
+      throw new Error('Title cannot be empty');
+    }
+    if (data.genre !== undefined && data.genre.trim().length === 0) {
+      throw new Error('Genre cannot be empty');
+    }
+    if (data.targetLength !== undefined && data.targetLength < 1000) {
+      throw new Error('Target length must be at least 1,000 words');
+    }
+
     // First verify ownership
     const existingProject = await prisma.project.findFirst({
       where: {
@@ -150,12 +175,30 @@ export async function updateProject(
       return null;
     }
 
+    // Prepare update data with trimmed strings
+    const updateData: any = {
+      updatedAt: new Date(),
+    };
+
+    if (data.title !== undefined) {
+      updateData.title = data.title.trim();
+    }
+    if (data.description !== undefined) {
+      updateData.description = data.description?.trim();
+    }
+    if (data.genre !== undefined) {
+      updateData.genre = data.genre.trim();
+    }
+    if (data.targetLength !== undefined) {
+      updateData.targetLength = data.targetLength;
+    }
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
     const updatedProject = await prisma.project.update({
       where: { id: projectId },
-      data: {
-        ...data,
-        updatedAt: new Date(),
-      },
+      data: updateData,
     });
 
     // Invalidate related caches
@@ -168,6 +211,9 @@ export async function updateProject(
     return updatedProject;
   } catch (error) {
     console.error('Error updating project:', error);
+    if (error instanceof Error && (error.message.includes('cannot be empty') || error.message.includes('must be at least'))) {
+      throw error; // Re-throw validation errors
+    }
     throw new Error('Failed to update project');
   }
 }
@@ -180,22 +226,92 @@ export async function deleteProject(
   userId: string
 ): Promise<boolean> {
   try {
-    // First verify ownership
-    const existingProject = await prisma.project.findFirst({
-      where: {
-        id: projectId,
-        userId,
-      },
+    // Use transaction to ensure data consistency
+    const result = await prisma.$transaction(async (tx) => {
+      // First verify ownership
+      const existingProject = await tx.project.findFirst({
+        where: {
+          id: projectId,
+          userId,
+        },
+      });
+
+      if (!existingProject) {
+        return false;
+      }
+
+      // Delete related data in proper order to avoid foreign key constraints
+      // Note: With proper cascade settings in schema, this should be automatic
+      // but we're being explicit for safety
+
+      // Delete exports first
+      await tx.export.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete timeline events
+      await tx.timelineEvent.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete world element relations
+      await tx.worldElementRelation.deleteMany({
+        where: {
+          OR: [
+            { element: { projectId } },
+            { relatedElement: { projectId } },
+          ],
+        },
+      });
+
+      // Delete world elements
+      await tx.worldElement.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete plot threads (relations will be cleaned up automatically)
+      await tx.plotThread.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete character relationships
+      await tx.relationship.deleteMany({
+        where: {
+          OR: [
+            { character: { projectId } },
+            { relatedCharacter: { projectId } },
+          ],
+        },
+      });
+
+      // Delete characters
+      await tx.character.deleteMany({
+        where: { projectId },
+      });
+
+      // Delete chapter versions
+      await tx.chapterVersion.deleteMany({
+        where: {
+          chapter: { projectId },
+        },
+      });
+
+      // Delete chapters
+      await tx.chapter.deleteMany({
+        where: { projectId },
+      });
+
+      // Finally delete the project
+      await tx.project.delete({
+        where: { id: projectId },
+      });
+
+      return true;
     });
 
-    if (!existingProject) {
+    if (!result) {
       return false;
     }
-
-    // Delete project (cascade will handle related data)
-    await prisma.project.delete({
-      where: { id: projectId },
-    });
 
     // Invalidate all related caches
     await Promise.all([
@@ -289,6 +405,27 @@ export async function listProjects(
             orderBy: {
               [sortBy]: sortOrder,
             },
+            select: {
+              id: true,
+              title: true,
+              description: true,
+              genre: true,
+              targetLength: true,
+              currentWordCount: true,
+              status: true,
+              createdAt: true,
+              updatedAt: true,
+              userId: true,
+              // Only include counts for related data to improve performance
+              _count: {
+                select: {
+                  chapters: true,
+                  characters: true,
+                  plotThreads: true,
+                  worldElements: true,
+                },
+              },
+            },
           }),
         ]);
 
@@ -316,51 +453,140 @@ export async function listProjects(
 }
 
 /**
+ * Get aggregated project statistics efficiently
+ */
+export async function getAggregatedProjectStats(userId: string): Promise<{
+  totalProjects: number;
+  totalWordCount: number;
+  averageWordCount: number;
+  projectsByStatus: Record<ProjectStatus, number>;
+  projectsByGenre: Record<string, number>;
+  completionRate: number;
+}> {
+  const cacheKey = `user:${userId}:aggregated-stats`;
+
+  return cacheService.getOrSet(
+    cacheKey,
+    async () => {
+      try {
+        // Use aggregation query for better performance
+        const [
+          totalProjects,
+          statusStats,
+          genreStats,
+          wordCountStats,
+        ] = await Promise.all([
+          prisma.project.count({ where: { userId } }),
+          prisma.project.groupBy({
+            by: ['status'],
+            where: { userId },
+            _count: { status: true },
+          }),
+          prisma.project.groupBy({
+            by: ['genre'],
+            where: { userId },
+            _count: { genre: true },
+          }),
+          prisma.project.aggregate({
+            where: { userId },
+            _sum: { currentWordCount: true },
+            _avg: { currentWordCount: true },
+          }),
+        ]);
+
+        const projectsByStatus = statusStats.reduce(
+          (acc, stat) => {
+            acc[stat.status] = stat._count.status;
+            return acc;
+          },
+          {} as Record<ProjectStatus, number>
+        );
+
+        const projectsByGenre = genreStats.reduce(
+          (acc, stat) => {
+            acc[stat.genre] = stat._count.genre;
+            return acc;
+          },
+          {} as Record<string, number>
+        );
+
+        // Ensure all status types are represented
+        const allStatuses: ProjectStatus[] = ['DRAFT', 'IN_PROGRESS', 'COMPLETED'];
+        allStatuses.forEach(status => {
+          if (!(status in projectsByStatus)) {
+            projectsByStatus[status] = 0;
+          }
+        });
+
+        const completedProjects = projectsByStatus['COMPLETED'] || 0;
+        const completionRate = totalProjects > 0 ? (completedProjects / totalProjects) * 100 : 0;
+
+        return {
+          totalProjects,
+          totalWordCount: wordCountStats._sum.currentWordCount || 0,
+          averageWordCount: Math.round(wordCountStats._avg.currentWordCount || 0),
+          projectsByStatus,
+          projectsByGenre,
+          completionRate: Math.round(completionRate * 100) / 100, // Round to 2 decimal places
+        };
+      } catch (error) {
+        console.error('Error getting aggregated project stats:', error);
+        throw new Error('Failed to get aggregated project statistics');
+      }
+    },
+    { ttl: 900 } // Cache for 15 minutes
+  );
+}
+
+/**
  * Initialize project context with empty structures
  */
 async function initializeProjectContext(projectId: string): Promise<void> {
   try {
-    // Create a default main character placeholder
-    await prisma.character.create({
-      data: {
-        projectId,
-        name: 'Main Character',
-        description: 'The protagonist of your story',
-        role: 'PROTAGONIST',
-        developmentArc: 'To be developed',
-      },
-    });
+    // Use transaction to ensure all context is created atomically
+    await prisma.$transaction(async (tx) => {
+      // Create a default main character placeholder
+      await tx.character.create({
+        data: {
+          projectId,
+          name: 'Main Character',
+          description: 'The protagonist of your story',
+          role: 'PROTAGONIST',
+          developmentArc: 'To be developed',
+        },
+      });
 
-    // Create a default plot thread
-    await prisma.plotThread.create({
-      data: {
-        projectId,
-        title: 'Main Plot',
-        description: 'The primary storyline',
-        status: 'INTRODUCED',
-      },
-    });
+      // Create a default plot thread
+      await tx.plotThread.create({
+        data: {
+          projectId,
+          title: 'Main Plot',
+          description: 'The primary storyline',
+          status: 'INTRODUCED',
+        },
+      });
 
-    // Create a default world element
-    await prisma.worldElement.create({
-      data: {
-        projectId,
-        type: 'LOCATION',
-        name: 'Primary Setting',
-        description: 'The main location where your story takes place',
-        significance: 'Central to the story',
-      },
-    });
+      // Create a default world element
+      await tx.worldElement.create({
+        data: {
+          projectId,
+          type: 'LOCATION',
+          name: 'Primary Setting',
+          description: 'The main location where your story takes place',
+          significance: 'Central to the story',
+        },
+      });
 
-    // Create a default timeline event
-    await prisma.timelineEvent.create({
-      data: {
-        projectId,
-        title: 'Story Beginning',
-        description: 'The opening of your story',
-        eventDate: 'Day 1',
-        importance: 5,
-      },
+      // Create a default timeline event
+      await tx.timelineEvent.create({
+        data: {
+          projectId,
+          title: 'Story Beginning',
+          description: 'The opening of your story',
+          eventDate: 'Day 1',
+          importance: 5,
+        },
+      });
     });
   } catch (error) {
     console.error('Error initializing project context:', error);
@@ -387,6 +613,47 @@ export async function validateProjectOwnership(
   } catch (error) {
     console.error('Error validating project ownership:', error);
     return false;
+  }
+}
+
+/**
+ * Update project word count based on chapters
+ */
+export async function updateProjectWordCount(projectId: string): Promise<void> {
+  try {
+    // Calculate total word count from all chapters
+    const chapters = await prisma.chapter.findMany({
+      where: { projectId },
+      select: { wordCount: true },
+    });
+
+    const totalWordCount = chapters.reduce(
+      (sum, chapter) => sum + chapter.wordCount,
+      0
+    );
+
+    // Update project with new word count
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { currentWordCount: totalWordCount },
+    });
+
+    // Invalidate related caches
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { userId: true },
+    });
+
+    if (project) {
+      await Promise.all([
+        cacheService.del(`${CacheKeys.project(projectId)}:user:${project.userId}`),
+        cacheService.del(CacheKeys.userProjects(project.userId)),
+        cacheService.del(`user:${project.userId}:stats`),
+      ]);
+    }
+  } catch (error) {
+    console.error('Error updating project word count:', error);
+    throw new Error('Failed to update project word count');
   }
 }
 
@@ -436,6 +703,14 @@ export async function getProjectStats(userId: string): Promise<{
           },
           {} as Record<ProjectStatus, number>
         );
+
+        // Ensure all status types are represented
+        const allStatuses: ProjectStatus[] = ['DRAFT', 'IN_PROGRESS', 'COMPLETED'];
+        allStatuses.forEach(status => {
+          if (!(status in projectsByStatus)) {
+            projectsByStatus[status] = 0;
+          }
+        });
 
         return {
           totalProjects,

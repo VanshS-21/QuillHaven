@@ -919,7 +919,9 @@ export class ExportService {
     try {
       const exports = await prisma.export.findMany({
         where: {
-          userId: userId,
+          project: {
+            userId: userId,
+          },
         },
         orderBy: {
           createdAt: 'desc',

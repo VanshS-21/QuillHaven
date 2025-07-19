@@ -29,7 +29,7 @@ export interface AuthContextType {
   isInitialized?: boolean;
   error?: string | null;
   login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterFormData) => Promise<void>;
+  register: (data: RegisterFormData) => Promise<AuthResponse>;
   logout: () => void;
   resetPassword: (email: string) => Promise<void>;
 }
@@ -37,6 +37,7 @@ export interface AuthContextType {
 export interface AuthResponse {
   user: AuthUser;
   token: string;
+  requiresVerification?: boolean;
 }
 
 export interface AuthError {

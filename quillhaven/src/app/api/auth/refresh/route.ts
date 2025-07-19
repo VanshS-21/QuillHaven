@@ -25,8 +25,7 @@ async function handleRefresh(req: NextRequest) {
       false,
       'token_refresh',
       clientIP,
-      userAgent || undefined,
-      'Invalid token for refresh'
+      userAgent || undefined
     );
 
     throw new AuthenticationError('Invalid or expired token');
@@ -40,8 +39,7 @@ async function handleRefresh(req: NextRequest) {
     true,
     authResult.user.email,
     clientIP,
-    userAgent || undefined,
-    'Token refreshed'
+    userAgent || undefined
   );
 
   logger.info('Token refreshed successfully', {

@@ -25,8 +25,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const router = useRouter();
   const { notifyError, notifySuccess, notifyWarning } = useNotifications();
-  const refreshTimeoutRef = useRef<NodeJS.Timeout>();
-  const initializationRef = useRef<Promise<void>>();
+  const refreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const initializationRef = useRef<Promise<void> | null>(null);
 
   /**
    * Update auth state

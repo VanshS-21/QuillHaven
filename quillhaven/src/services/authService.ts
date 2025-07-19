@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   AuthUser,
 } from '@/types/auth';
+import { tokenStorage } from '@/utils/secureStorage';
 
 const API_BASE = '/api/auth';
 const TOKEN_REFRESH_THRESHOLD = 5 * 60 * 1000; // 5 minutes before expiration
@@ -372,7 +373,6 @@ class AuthService {
       if (!currentTokenData) return null;
 
       // Try secure cached user data first
-      const { tokenStorage } = require('@/utils/secureStorage');
       let cachedUser = tokenStorage.getUser();
       
       // Fallback to regular storage
@@ -423,7 +423,6 @@ class AuthService {
       const user = result.user || result;
       
       // Cache user data securely
-      const { tokenStorage } = require('@/utils/secureStorage');
       tokenStorage.storeUser(user);
       localStorage.setItem('auth_user', JSON.stringify(user)); // Keep for backward compatibility
       return user;

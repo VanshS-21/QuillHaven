@@ -6,7 +6,7 @@ import DOMPurify from 'isomorphic-dompurify';
 
 export interface ValidationResult {
   isValid: boolean;
-  errors: string[] | Record<string, string[]>;
+  errors: string[];
   sanitizedData?: unknown;
   sanitized?: Record<string, any>;
   wordCount?: number;
@@ -498,7 +498,7 @@ export function validateProjectData(data: ProjectData): ValidationResult {
   if (totalInputSize > MAX_INPUT_LENGTH) {
     return {
       isValid: false,
-      errors: { general: ['Input data too large'] },
+      errors: ['Input data too large'],
     };
   }
 
@@ -559,10 +559,18 @@ export function validateProjectData(data: ProjectData): ValidationResult {
   }
 
   const hasErrors = Object.keys(errors).length > 0;
+  
+  // Flatten errors to match ValidationResult interface
+  const flatErrors: string[] = [];
+  if (hasErrors) {
+    for (const fieldErrors of Object.values(errors)) {
+      flatErrors.push(...fieldErrors);
+    }
+  }
 
   return {
     isValid: !hasErrors,
-    errors: hasErrors ? errors : {},
+    errors: flatErrors,
     sanitized: hasErrors ? undefined : sanitized,
   };
 }
@@ -609,6 +617,14 @@ export function validateChapterData(data: ChapterData): ValidationResult {
   }
 
   const hasErrors = Object.keys(errors).length > 0;
+  
+  // Flatten errors to match ValidationResult interface
+  const flatErrors: string[] = [];
+  if (hasErrors) {
+    for (const fieldErrors of Object.values(errors)) {
+      flatErrors.push(...fieldErrors);
+    }
+  }
 
   // Calculate word count with performance optimization
   let wordCount = 0;
@@ -623,7 +639,7 @@ export function validateChapterData(data: ChapterData): ValidationResult {
 
   return {
     isValid: !hasErrors,
-    errors: hasErrors ? errors : {},
+    errors: flatErrors,
     sanitized: hasErrors ? undefined : sanitized,
     wordCount,
   };
@@ -670,10 +686,18 @@ export function validateExportRequest(data: ExportRequest): ValidationResult {
   }
 
   const hasErrors = Object.keys(errors).length > 0;
+  
+  // Flatten errors to match ValidationResult interface
+  const flatErrors: string[] = [];
+  if (hasErrors) {
+    for (const fieldErrors of Object.values(errors)) {
+      flatErrors.push(...fieldErrors);
+    }
+  }
 
   return {
     isValid: !hasErrors,
-    errors: hasErrors ? errors : {},
+    errors: flatErrors,
   };
 }
 

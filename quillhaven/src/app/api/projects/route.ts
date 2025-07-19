@@ -50,6 +50,7 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
               case 'draft':
                 return 'DRAFT';
               case 'in-progress':
+              case 'in_progress':
                 return 'IN_PROGRESS';
               case 'completed':
                 return 'COMPLETED';
@@ -86,7 +87,14 @@ async function handleGetProjects(req: NextRequest): Promise<NextResponse> {
     page: result.pagination.page,
   });
 
-  return NextResponse.json(result, {
+  return NextResponse.json({
+    success: true,
+    data: result.projects,
+    pagination: result.pagination,
+    total: result.pagination.total,
+    page: result.pagination.page,
+    totalPages: result.pagination.totalPages,
+  }, {
     headers: {
       'X-Total-Count': result.pagination.total.toString(),
       'X-Page': result.pagination.page.toString(),
@@ -158,7 +166,11 @@ async function handleCreateProject(req: NextRequest): Promise<NextResponse> {
     genre: project.genre,
   });
 
-  return NextResponse.json(project, { status: 201 });
+  return NextResponse.json({
+    success: true,
+    data: project,
+    message: 'Project created successfully',
+  }, { status: 201 });
 }
 
 // Apply error handling, rate limiting, and caching middleware

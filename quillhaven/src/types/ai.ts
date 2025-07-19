@@ -26,6 +26,7 @@ export interface ChapterGenerationResponse {
   wordCount: number;
   generatedAt: Date;
   parameters: ChapterGenerationParameters;
+  contextUsed?: string[];
 }
 
 export interface ProjectContextForAI {

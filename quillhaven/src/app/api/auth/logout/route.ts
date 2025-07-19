@@ -35,8 +35,7 @@ async function handleLogout(req: NextRequest) {
       true,
       'logout',
       clientIP,
-      userAgent || undefined,
-      'User logged out'
+      userAgent || undefined
     );
 
     logger.info('User logged out successfully', {

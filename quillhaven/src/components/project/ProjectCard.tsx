@@ -219,8 +219,10 @@ export function ProjectCard({
               size="sm"
               className="flex-1"
               onClick={() => {
-                // Navigate to project - you'll implement this based on your routing
-                window.location.href = `/project/${project.id}`;
+                // Navigate to project using Next.js router
+                if (typeof window !== 'undefined') {
+                  window.location.href = `/project/${project.id}`;
+                }
               }}
             >
               <BookOpen className="h-4 w-4 mr-2" />
