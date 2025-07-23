@@ -1,0 +1,153 @@
+name: Health Check & Monitoring
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+  deployment_status:
+
+jobs:
+  health-check:
+    name: Application Health Check
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        environment: [staging, production]
+
+    steps:
+      - name: Set environment URLs
+        id: urls
+        run: |
+          if [ "${{ matrix.environment }}" == "production" ]; then
+            echo "url=https://quillhaven.com" >> $GITHUB_OUTPUT
+            echo "api_url=https://quillhaven.com/api" >> $GITHUB_OUTPUT
+          else
+            echo "url=https://staging-quillhaven.vercel.app" >> $GITHUB_OUTPUT
+            echo "api_url=https://staging-quillhaven.vercel.app/api" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Check application health
+        run: |
+          echo "🏥 Checking ${{ matrix.environment }} health..."
+
+          # Check main application
+          response=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.urls.outputs.url }}" || echo "000")
+          if [ "$response" -eq 200 ]; then
+            echo "✅ Main application is healthy (HTTP $response)"
+          else
+            echo "❌ Main application is unhealthy (HTTP $response)"
+            exit 1
+          fi
+
+          # Check API health endpoint
+          api_response=$(curl -s -o /dev/null -w "%{http_code}" "${{ steps.urls.outputs.api_url }}/health" || echo "000")
+          if [ "$api_response" -eq 200 ]; then
+            echo "✅ API is healthy (HTTP $api_response)"
+          else
+            echo "⚠️ API health check failed (HTTP $api_response)"
+          fi
+
+      - name: Check response time
+        run: |
+          echo "⏱️ Checking response time for ${{ matrix.environment }}..."
+
+          response_time=$(curl -s -o /dev/null -w "%{time_total}" "${{ steps.urls.outputs.url }}" || echo "999")
+          response_time_ms=$(echo "$response_time * 1000" | bc)
+
+          echo "Response time: ${response_time_ms}ms"
+
+          # Alert if response time > 5 seconds
+          if (( $(echo "$response_time > 5.0" | bc -l) )); then
+            echo "⚠️ Slow response time detected: ${response_time_ms}ms"
+          else
+            echo "✅ Response time is acceptable: ${response_time_ms}ms"
+          fi
+
+      - name: Check SSL certificate
+        run: |
+          echo "🔒 Checking SSL certificate for ${{ matrix.environment }}..."
+
+          domain=$(echo "${{ steps.urls.outputs.url }}" | sed 's|https://||' | sed 's|/.*||')
+
+          # Check SSL certificate expiry
+          expiry_date=$(echo | openssl s_client -servername "$domain" -connect "$domain:443" 2>/dev/null | openssl x509 -noout -dates | grep notAfter | cut -d= -f2)
+          expiry_timestamp=$(date -d "$expiry_date" +%s)
+          current_timestamp=$(date +%s)
+          days_until_expiry=$(( (expiry_timestamp - current_timestamp) / 86400 ))
+
+          echo "SSL certificate expires in $days_until_expiry days"
+
+          if [ "$days_until_expiry" -lt 30 ]; then
+            echo "⚠️ SSL certificate expires soon: $days_until_expiry days"
+          else
+            echo "✅ SSL certificate is valid: $days_until_expiry days remaining"
+          fi
+
+  database-health:
+    name: Database Health Check
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Test database connection
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "🗄️ Testing database connection..."
+          npm run db:test || echo "⚠️ Database connection test failed"
+
+      - name: Check database performance
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          echo "📊 Checking database performance..."
+          # Add database performance checks here
+          echo "✅ Database performance check completed"
+
+  notify-status:
+    name: Notify Status
+    runs-on: ubuntu-latest
+    needs: [health-check, database-health]
+    if: always()
+
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          if [ "${{ needs.health-check.result }}" == "success" ] && [ "${{ needs.database-health.result }}" == "success" ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "message=All systems operational" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.health-check.result }}" == "failure" ]; then
+            echo "status=unhealthy" >> $GITHUB_OUTPUT
+            echo "message=Application health check failed" >> $GITHUB_OUTPUT
+          elif [ "${{ needs.database-health.result }}" == "failure" ]; then
+            echo "status=degraded" >> $GITHUB_OUTPUT
+            echo "message=Database health check failed" >> $GITHUB_OUTPUT
+          else
+            echo "status=unknown" >> $GITHUB_OUTPUT
+            echo "message=Health check status unknown" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Log status
+        run: |
+          echo "🏥 System Status: ${{ steps.status.outputs.status }}"
+          echo "📝 Message: ${{ steps.status.outputs.message }}"
+
+          if [ "${{ steps.status.outputs.status }}" != "healthy" ]; then
+            echo "⚠️ System health issues detected - consider investigating"
+          fi

@@ -1,0 +1,77 @@
+{
+  "framework": "nextjs",
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "outputDirectory": ".next",
+  "env": {
+    "ENVIRONMENT": "@environment",
+    "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
+    "NEXT_PUBLIC_FEATURE_COLLABORATION": "@next_public_feature_collaboration",
+    "NEXT_PUBLIC_FEATURE_AI_SUGGESTIONS": "@next_public_feature_ai_suggestions",
+    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+    "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+    "DATABASE_URL": "@database_url",
+    "GEMINI_API_KEY": "@gemini_api_key",
+    "CLAUDE_API_KEY": "@claude_api_key",
+    "NEXT_PUBLIC_ANALYTICS_ENABLED": "@next_public_analytics_enabled",
+    "NEXT_PUBLIC_ERROR_REPORTING_ENABLED": "@next_public_error_reporting_enabled",
+    "NEXT_PUBLIC_SECURITY_LEVEL": "@next_public_security_level"
+  },
+  "build": {
+    "env": {
+      "ENVIRONMENT": "@environment",
+      "NEXT_PUBLIC_APP_URL": "@next_public_app_url",
+      "NEXT_PUBLIC_FEATURE_COLLABORATION": "@next_public_feature_collaboration",
+      "NEXT_PUBLIC_FEATURE_AI_SUGGESTIONS": "@next_public_feature_ai_suggestions",
+      "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
+      "NEXT_PUBLIC_SUPABASE_ANON_KEY": "@next_public_supabase_anon_key",
+      "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key",
+      "DATABASE_URL": "@database_url",
+      "GEMINI_API_KEY": "@gemini_api_key",
+      "CLAUDE_API_KEY": "@claude_api_key",
+      "NEXT_PUBLIC_ANALYTICS_ENABLED": "@next_public_analytics_enabled",
+      "NEXT_PUBLIC_ERROR_REPORTING_ENABLED": "@next_public_error_reporting_enabled",
+      "NEXT_PUBLIC_SECURITY_LEVEL": "@next_public_security_level"
+    }
+  },
+  "functions": {
+    "app/api/**": {
+      "maxDuration": 30
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(), microphone=(), geolocation=()"
+        }
+      ]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/$1"
+    }
+  ]
+}

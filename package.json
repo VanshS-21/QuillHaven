@@ -19,7 +19,16 @@
     "db:studio": "prisma studio",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
-    "db:test": "tsx prisma/test-connection.ts"
+    "db:test": "tsx prisma/test-connection.ts",
+    "deploy:staging": "node -e \"console.log('Use: ./scripts/deploy.sh staging or .\\\\scripts\\\\deploy.ps1 staging')\"",
+    "deploy:production": "node -e \"console.log('Use: ./scripts/deploy.sh production or .\\\\scripts\\\\deploy.ps1 production')\"",
+    "quality:check": "npm run type-check && npm run lint && npm run format:check && npm run test && npm run build",
+    "quality:fix": "npm run lint:fix && npm run format && npm run test",
+    "security:audit": "npm audit --audit-level=moderate",
+    "security:check": "npm run security:audit && echo 'Security check completed'",
+    "health:check": "curl -f http://localhost:3000/api/health || echo 'Health check failed'",
+    "precommit": "npm run quality:fix",
+    "prepush": "npm run quality:check"
   },
   "dependencies": {
     "@prisma/client": "^6.12.0",
