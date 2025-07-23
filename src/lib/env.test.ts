@@ -21,6 +21,8 @@ describe('Environment Variable Validation', () => {
       NEXT_PUBLIC_SUPABASE_URL: 'https://test-project.supabase.co',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',
       DATABASE_URL: 'postgresql://user:password@localhost:5432/db',
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_example',
+      CLERK_SECRET_KEY: 'sk_test_example',
     }
     mockConsoleWarn.mockClear()
   })
@@ -37,6 +39,15 @@ describe('Environment Variable Validation', () => {
 
   it('should throw an error when a required environment variable is missing', () => {
     delete process.env.DATABASE_URL
+
+    expect(() => {
+      jest.resetModules()
+      require('./env')
+    }).toThrow(/Missing required environment variables/)
+  })
+
+  it('should throw an error when Clerk environment variables are missing', () => {
+    delete process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY
 
     expect(() => {
       jest.resetModules()
@@ -99,6 +110,10 @@ describe('Environment Variable Validation', () => {
     expect(env.DATABASE_URL).toBe(
       'postgresql://user:password@localhost:5432/db'
     )
+    expect(env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY).toBe('pk_test_example')
+    expect(env.CLERK_SECRET_KEY).toBe('sk_test_example')
+    expect(env.NEXT_PUBLIC_CLERK_SIGN_IN_URL).toBe('/sign-in')
+    expect(env.NEXT_PUBLIC_CLERK_SIGN_UP_URL).toBe('/sign-up')
     expect(env.NODE_ENV).toBe('development')
   })
 })

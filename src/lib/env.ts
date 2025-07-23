@@ -12,6 +12,8 @@ function validateEnv() {
     'NEXT_PUBLIC_SUPABASE_URL',
     'NEXT_PUBLIC_SUPABASE_ANON_KEY',
     'DATABASE_URL',
+    'NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY',
+    'CLERK_SECRET_KEY',
   ]
 
   const missingEnvVars = requiredEnvVars.filter(
@@ -76,6 +78,19 @@ export const env = {
   // AI Services
   GEMINI_API_KEY: process.env.GEMINI_API_KEY as string,
   CLAUDE_API_KEY: process.env.CLAUDE_API_KEY as string,
+
+  // Clerk Authentication
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: process.env
+    .NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY as string,
+  CLERK_SECRET_KEY: process.env.CLERK_SECRET_KEY as string,
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL:
+    process.env.NEXT_PUBLIC_CLERK_SIGN_IN_URL || '/sign-in',
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL:
+    process.env.NEXT_PUBLIC_CLERK_SIGN_UP_URL || '/sign-up',
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL:
+    process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL || '/dashboard',
+  NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL:
+    process.env.NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL || '/dashboard',
 
   // Environment
   NODE_ENV: process.env.NODE_ENV as 'development' | 'production' | 'test',
