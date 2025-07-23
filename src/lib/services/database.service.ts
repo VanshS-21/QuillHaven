@@ -18,7 +18,9 @@ export class DatabaseService {
    * @param operation - The database operation to execute within a transaction
    * @returns The result of the operation
    */
-  static async transaction<T>(operation: (tx: typeof prisma) => Promise<T>): Promise<T> {
+  static async transaction<T>(
+    operation: (tx: typeof prisma) => Promise<T>
+  ): Promise<T> {
     try {
       // Execute the operation within a transaction
       return await prisma.$transaction(async (tx: typeof prisma) => {
@@ -39,7 +41,7 @@ export class DatabaseService {
     // Check for specific Prisma error codes and convert to user-friendly errors
     if (error && typeof error === 'object' && 'code' in error) {
       const prismaError = error as { code: string; meta?: { target?: string } }
-      
+
       if (prismaError.code === 'P2002') {
         return new Error(
           `A record with this ${prismaError.meta?.target || 'value'} already exists.`
@@ -73,7 +75,10 @@ export class DatabaseService {
    * @param params - The parameters for the query
    * @returns The query result
    */
-  static async executeRawQuery(sql: string, params: unknown[] = []): Promise<unknown> {
+  static async executeRawQuery(
+    sql: string,
+    params: unknown[] = []
+  ): Promise<unknown> {
     try {
       return await prisma.$queryRawUnsafe(sql, ...params)
     } catch (error) {
@@ -87,10 +92,10 @@ export class DatabaseService {
    * @returns Database health metrics
    */
   static async getHealthMetrics(): Promise<{
-    connections?: unknown;
-    databaseSize?: string;
-    timestamp: Date;
-    error?: string;
+    connections?: unknown
+    databaseSize?: string
+    timestamp: Date
+    error?: string
   }> {
     try {
       // Get connection pool statistics
@@ -110,9 +115,13 @@ export class DatabaseService {
 
       return {
         connections: Array.isArray(poolStats) ? poolStats[0] : poolStats,
-        databaseSize: Array.isArray(dbSize) && dbSize[0] && typeof dbSize[0] === 'object' && 'database_size' in dbSize[0] 
-          ? (dbSize[0] as { database_size: string }).database_size 
-          : 'Unknown',
+        databaseSize:
+          Array.isArray(dbSize) &&
+          dbSize[0] &&
+          typeof dbSize[0] === 'object' &&
+          'database_size' in dbSize[0]
+            ? (dbSize[0] as { database_size: string }).database_size
+            : 'Unknown',
         timestamp: new Date(),
       }
     } catch (error) {

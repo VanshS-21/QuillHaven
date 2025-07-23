@@ -25,15 +25,16 @@ describe('Supabase Client', () => {
 
   it('should create clients with correct configuration', async () => {
     // Import after mocking to ensure the mock is used
-    const { supabaseClient, supabaseAdmin, createServerSupabaseClient } = await import('./supabase')
-    
+    const { supabaseClient, supabaseAdmin, createServerSupabaseClient } =
+      await import('./supabase')
+
     // Test that clients were created
     expect(mockCreateClient).toHaveBeenCalledTimes(2)
-    
+
     // Test server client creation
     const testToken = 'test-auth-token'
     createServerSupabaseClient(testToken)
-    
+
     expect(mockCreateClient).toHaveBeenCalledTimes(3)
     expect(mockCreateClient).toHaveBeenLastCalledWith(
       expect.any(String),
@@ -54,7 +55,7 @@ describe('Supabase Client', () => {
 
   it('should export supabase clients', async () => {
     const { supabaseClient, supabaseAdmin } = await import('./supabase')
-    
+
     expect(supabaseClient).toBeDefined()
     expect(supabaseAdmin).toBeDefined()
     expect(typeof supabaseClient.auth.getSession).toBe('function')
