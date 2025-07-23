@@ -1,6 +1,13 @@
+import { SignedIn, SignedOut } from '@clerk/nextjs'
+import Link from 'next/link'
+import { AuthHeader } from '@/components/auth/AuthHeader'
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+      <AuthHeader />
+
+      {/* Main Content */}
       <div className="container mx-auto px-4 py-16">
         <div className="mx-auto max-w-4xl text-center">
           <h1 className="mb-6 text-5xl font-bold text-slate-900 dark:text-slate-100">
@@ -93,9 +100,32 @@ export default function Home() {
           </div>
 
           <div className="mt-12">
-            <div className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700">
-              Platform Foundation - Coming Soon
-            </div>
+            <SignedOut>
+              <div className="space-x-4">
+                <Link
+                  href="/sign-up"
+                  className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  Get Started Free
+                </Link>
+                <Link
+                  href="/sign-in"
+                  className="inline-flex items-center rounded-lg border border-slate-300 bg-white px-6 py-3 font-medium text-slate-700 transition-colors hover:bg-slate-50 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+                >
+                  Sign In
+                </Link>
+              </div>
+            </SignedOut>
+
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="inline-flex items-center rounded-lg bg-blue-600 px-6 py-3 font-medium text-white transition-colors hover:bg-blue-700"
+              >
+                Go to Dashboard
+              </Link>
+            </SignedIn>
+
             <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
               Building the core infrastructure for your writing journey
             </p>
