@@ -1,0 +1,280 @@
+// QuillHaven Prisma Schema
+// This schema defines the database models for the QuillHaven platform
+
+generator client {
+  provider        = "prisma-client-js"
+  output          = "../src/generated/prisma"
+  previewFeatures = ["fullTextSearchPostgres", "postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [pgcrypto, pg_trgm, vector]
+}
+
+// User Models
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  emailVerified     Boolean   @default(false)
+  firstName         String?
+  lastName          String?
+  displayName       String?
+  avatar            String?
+  role              UserRole  @default(USER)
+  status            UserStatus @default(ACTIVE)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastLoginAt       DateTime?
+  twoFactorEnabled  Boolean   @default(false)
+  
+  // Relations
+  projects          Project[]
+  sessions          UserSession[]
+  profile           UserProfile?
+  subscription      Subscription?
+  paymentMethods    PaymentMethod[]
+  billingHistory    BillingTransaction[]
+
+  @@map("users")
+}
+
+model UserProfile {
+  id              String    @id @default(uuid())
+  userId          String    @unique
+  bio             String?   @db.Text
+  location        String?
+  website         String?
+  socialLinks     Json?     @default("[]")
+  writingGenres   String[]  @default([])
+  experienceLevel String?
+  goals           Json?     @default("[]")
+  preferences     Json      @default("{}")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  // Relations
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_profiles")
+}
+
+model UserSession {
+  id            String    @id @default(uuid())
+  userId        String
+  token         String    @unique
+  refreshToken  String?   @unique
+  expiresAt     DateTime
+  createdAt     DateTime  @default(now())
+  lastActiveAt  DateTime  @default(now())
+  ipAddress     String?
+  userAgent     String?
+  isActive      Boolean   @default(true)
+
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_sessions")
+}
+
+// Project Models
+model Project {
+  id                String    @id @default(uuid())
+  userId            String
+  title             String
+  description       String?   @db.Text
+  genre             String?
+  targetWordCount   Int?
+  currentWordCount  Int       @default(0)
+  status            ProjectStatus @default(DRAFT)
+  visibility        ProjectVisibility @default(PRIVATE)
+  isArchived        Boolean   @default(false)
+  tags              String[]  @default([])
+  settings          Json      @default("{}")
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  lastAccessedAt    DateTime  @default(now())
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  statistics        ProjectStatistics?
+
+  @@map("projects")
+  @@index([userId])
+  @@index([tags])
+  @@index([isArchived])
+  @@index([status])
+}
+
+model ProjectStatistics {
+  id                    String    @id @default(uuid())
+  projectId             String    @unique
+  totalWords            Int       @default(0)
+  totalChapters         Int       @default(0)
+  completedChapters     Int       @default(0)
+  averageWordsPerChapter Int      @default(0)
+  writingStreak         Int       @default(0)
+  totalWritingTime      Int       @default(0)
+  sessionsCount         Int       @default(0)
+  lastWritingSession    DateTime?
+  progressPercentage    Float     @default(0)
+  dailyWordCounts       Json      @default("[]")
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  // Relations
+  project               Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("project_statistics")
+}
+
+// Subscription Models
+model Subscription {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  planId            String
+  status            SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd  DateTime
+  cancelAtPeriodEnd Boolean   @default(false)
+  trialEnd          DateTime?
+  stripeCustomerId  String?
+  stripeSubscriptionId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              SubscriptionPlan @relation(fields: [planId], references: [id])
+  usageMetrics      UsageMetrics?
+
+  @@map("subscriptions")
+}
+
+model SubscriptionPlan {
+  id          String    @id @default(uuid())
+  name        String
+  description String    @db.Text
+  price       Float
+  currency    String    @default("USD")
+  interval    BillingInterval @default(MONTHLY)
+  features    Json      @default("[]")
+  limits      Json
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@map("subscription_plans")
+}
+
+model UsageMetrics {
+  id                String    @id @default(uuid())
+  subscriptionId    String    @unique
+  chaptersGenerated Int       @default(0)
+  chaptersRemaining Int       @default(0)
+  storageUsed       Int       @default(0)
+  storageLimit      Int
+  collaboratorsUsed Int       @default(0)
+  collaboratorsLimit Int
+  resetDate         DateTime
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  subscription      Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@map("usage_metrics")
+}
+
+model PaymentMethod {
+  id                String    @id @default(uuid())
+  userId            String
+  stripePaymentMethodId String @unique
+  type              String
+  last4             String
+  expiryMonth       Int?
+  expiryYear        Int?
+  brand             String?
+  isDefault         Boolean   @default(false)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("payment_methods")
+  @@index([userId])
+}
+
+model BillingTransaction {
+  id                String    @id @default(uuid())
+  userId            String
+  subscriptionId    String?
+  amount            Float
+  currency          String    @default("USD")
+  status            TransactionStatus @default(PENDING)
+  description       String
+  invoiceId         String?
+  paymentMethodId   String?
+  stripePaymentIntentId String?
+  createdAt         DateTime  @default(now())
+  processedAt       DateTime?
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("billing_transactions")
+  @@index([userId])
+  @@index([status])
+}
+
+// Enums
+enum UserRole {
+  USER
+  ADMIN
+  EDITOR
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  COMPLETED
+  PUBLISHED
+}
+
+enum ProjectVisibility {
+  PRIVATE
+  SHARED
+  PUBLIC
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  TRIALING
+  UNPAID
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
