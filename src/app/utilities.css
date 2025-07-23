@@ -1,0 +1,58 @@
+/* Custom utilities for QuillHaven using Tailwind CSS v4 @utility directive */
+
+@utility btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition-property: color, background-color, border-color;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+@utility btn-primary {
+  background-color: hsl(222.2 47.4% 11.2%);
+  color: hsl(210 40% 98%);
+}
+
+@utility btn-primary-hover {
+  background-color: hsl(222.2 47.4% 8%);
+}
+
+@utility btn-secondary {
+  background-color: hsl(210 40% 96.1%);
+  color: hsl(222.2 47.4% 11.2%);
+}
+
+@utility btn-secondary-hover {
+  background-color: hsl(210 40% 92%);
+}
+
+@utility btn-destructive {
+  background-color: hsl(0 100% 50%);
+  color: hsl(210 40% 98%);
+}
+
+@utility btn-destructive-hover {
+  background-color: hsl(0 100% 45%);
+}
+
+@utility card {
+  border-radius: 0.5rem;
+  background-color: white;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+}
+
+@utility card-dark {
+  border-radius: 0.5rem;
+  background-color: hsl(222.2 47.4% 11.2%);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.1),
+    0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  padding: 1.5rem;
+}
