@@ -5,7 +5,7 @@
  * It implements connection pooling for optimal performance in a serverless environment.
  */
 
-import { PrismaClient } from '@prisma/client'
+import { PrismaClient } from '../generated/prisma'
 
 // PrismaClient is attached to the `global` object in development to prevent
 // exhausting your database connection limit.

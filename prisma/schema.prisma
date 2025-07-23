@@ -16,12 +16,14 @@ datasource db {
 // User Models
 model User {
   id                String    @id @default(uuid())
+  clerkId           String    @unique
   email             String    @unique
   emailVerified     Boolean   @default(false)
   firstName         String?
   lastName          String?
   displayName       String?
   avatar            String?
+  imageUrl          String?
   role              UserRole  @default(USER)
   status            UserStatus @default(ACTIVE)
   createdAt         DateTime  @default(now())
@@ -33,9 +35,11 @@ model User {
   projects          Project[]
   sessions          UserSession[]
   profile           UserProfile?
+  preferences       UserPreferences?
   subscription      Subscription?
   paymentMethods    PaymentMethod[]
   billingHistory    BillingTransaction[]
+  activities        UserActivity[]
 
   @@map("users")
 }
@@ -76,6 +80,43 @@ model UserSession {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("user_sessions")
+}
+
+model UserPreferences {
+  id                String    @id @default(uuid())
+  userId            String    @unique
+  theme             String    @default("system")
+  language          String    @default("en")
+  timezone          String    @default("UTC")
+  emailNotifications Boolean  @default(true)
+  marketingEmails   Boolean   @default(false)
+  weeklyDigest      Boolean   @default(true)
+  autoSave          Boolean   @default(true)
+  autoSaveInterval  Int       @default(30)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_preferences")
+}
+
+model UserActivity {
+  id          String    @id @default(uuid())
+  userId      String
+  activity    String
+  sessionId   String?
+  metadata    Json      @default("{}")
+  createdAt   DateTime  @default(now())
+
+  // Relations
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_activities")
+  @@index([userId])
+  @@index([activity])
+  @@index([createdAt])
 }
 
 // Project Models

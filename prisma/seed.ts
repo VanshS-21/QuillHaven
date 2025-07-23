@@ -132,6 +132,7 @@ async function main() {
   const adminUser = await prisma.user.create({
     data: {
       id: 'user_admin',
+      clerkId: 'clerk_admin_123',
       email: 'admin@quillhaven.com',
       emailVerified: true,
       firstName: 'Admin',
@@ -161,6 +162,7 @@ async function main() {
   const sampleUser1 = await prisma.user.create({
     data: {
       id: 'user_sample_1',
+      clerkId: 'clerk_user_1_123',
       email: 'writer@example.com',
       emailVerified: true,
       firstName: 'Jane',
@@ -214,6 +216,7 @@ async function main() {
   const sampleUser2 = await prisma.user.create({
     data: {
       id: 'user_sample_2',
+      clerkId: 'clerk_user_2_123',
       email: 'novelist@example.com',
       emailVerified: true,
       firstName: 'Marcus',

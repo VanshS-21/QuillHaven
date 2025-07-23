@@ -19,11 +19,21 @@ export class DatabaseService {
    * @returns The result of the operation
    */
   static async transaction<T>(
-    operation: (tx: typeof prisma) => Promise<T>
+    operation: (
+      tx: Omit<
+        typeof prisma,
+        | '$connect'
+        | '$disconnect'
+        | '$on'
+        | '$transaction'
+        | '$use'
+        | '$extends'
+      >
+    ) => Promise<T>
   ): Promise<T> {
     try {
       // Execute the operation within a transaction
-      return await prisma.$transaction(async (tx: typeof prisma) => {
+      return await prisma.$transaction(async (tx) => {
         return await operation(tx)
       })
     } catch (error) {
