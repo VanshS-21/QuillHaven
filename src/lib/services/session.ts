@@ -1,5 +1,6 @@
 import { clerkClient } from '@clerk/nextjs/server'
 import { prisma } from '../prisma'
+import { Prisma } from '../../generated/prisma'
 import { SecurityService } from './security'
 
 /**
