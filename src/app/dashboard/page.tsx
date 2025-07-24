@@ -22,7 +22,7 @@ export default function DashboardPage() {
               </div>
 
               {/* Quick Actions */}
-              <div className="mb-8 grid gap-6 md:grid-cols-3">
+              <div className="mb-8 grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                 <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-slate-800">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900">
                     <svg
@@ -102,6 +102,36 @@ export default function DashboardPage() {
                   <button className="w-full rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700">
                     View Analytics
                   </button>
+                </div>
+
+                <div className="rounded-lg bg-white p-6 shadow-lg dark:bg-slate-800">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900">
+                    <svg
+                      className="h-6 w-6 text-red-600 dark:text-red-400"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      />
+                    </svg>
+                  </div>
+                  <h3 className="mb-2 text-lg font-semibold text-slate-900 dark:text-slate-100">
+                    Security
+                  </h3>
+                  <p className="mb-4 text-slate-600 dark:text-slate-300">
+                    Manage your account security and privacy
+                  </p>
+                  <a
+                    href="/dashboard/security"
+                    className="block w-full rounded-lg bg-red-600 px-4 py-2 text-center text-white transition-colors hover:bg-red-700"
+                  >
+                    Security Settings
+                  </a>
                 </div>
               </div>
 

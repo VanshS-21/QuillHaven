@@ -1,16 +1,10 @@
 import { WebhookEvent } from '@clerk/nextjs/server'
 import { UserService } from './user'
-import { DatabaseService } from './database.service'
+import { SessionService } from './session'
+import { ProfileSyncService } from './profile-sync'
 import { ClerkUserData, ClerkSessionData } from '../types/webhook'
 
-type ExtendedDatabaseService = typeof DatabaseService & {
-  logUserActivity: (activity: {
-    userId: string
-    activity: string
-    sessionId?: string
-    metadata?: Record<string, unknown>
-  }) => Promise<void>
-}
+// ExtendedDatabaseService type removed as it's not used
 
 /**
  * Webhook service for processing Clerk webhook events
@@ -134,91 +128,71 @@ export class WebhookService {
 
   /**
    * Handle session.created webhook event
-   * Logs session creation for analytics
+   * Creates session record and performs security checks
    */
   private static async handleSessionCreated(
     event: WebhookEvent
   ): Promise<void> {
     const sessionData = event.data as ClerkSessionData
 
-    // Log session creation
-    await (DatabaseService as ExtendedDatabaseService).logUserActivity({
-      userId: sessionData.user_id || '',
-      activity: 'session_created',
-      sessionId: sessionData.id || '',
-      metadata: {
-        lastActiveAt: new Date(sessionData.last_active_at || Date.now()),
-        createdAt: new Date(sessionData.created_at || Date.now()),
-      },
-    })
+    // Create session with security tracking
+    await SessionService.createSession(
+      sessionData.user_id || '',
+      sessionData.id || '',
+      {
+        expiresAt: new Date(
+          sessionData.last_active_at || Date.now() + 24 * 60 * 60 * 1000
+        ),
+        ipAddress: 'unknown', // IP not available in webhook data
+        userAgent: 'unknown', // User agent not available in webhook data
+      }
+    )
+
+    // Trigger profile sync
+    await ProfileSyncService.syncFromClerk(sessionData.user_id || '')
 
     console.log(`Session created for user: ${sessionData.user_id}`)
   }
 
   /**
    * Handle session.ended webhook event
-   * Logs session end for analytics
+   * Ends session and logs activity
    */
   private static async handleSessionEnded(event: WebhookEvent): Promise<void> {
     const sessionData = event.data as ClerkSessionData
 
-    // Log session end
-    await (DatabaseService as ExtendedDatabaseService).logUserActivity({
-      userId: sessionData.user_id || '',
-      activity: 'session_ended',
-      sessionId: sessionData.id || '',
-      metadata: {
-        endedAt: new Date(),
-        duration:
-          (sessionData.last_active_at || 0) - (sessionData.created_at || 0),
-      },
-    })
+    // End session with proper tracking
+    await SessionService.endSession(sessionData.id || '', 'user_logout')
 
     console.log(`Session ended for user: ${sessionData.user_id}`)
   }
 
   /**
    * Handle session.removed webhook event
-   * Logs session removal for security tracking
+   * Ends session and logs removal for security tracking
    */
   private static async handleSessionRemoved(
     event: WebhookEvent
   ): Promise<void> {
     const sessionData = event.data as ClerkSessionData
 
-    // Log session removal
-    await (DatabaseService as ExtendedDatabaseService).logUserActivity({
-      userId: sessionData.user_id || '',
-      activity: 'session_removed',
-      sessionId: sessionData.id || '',
-      metadata: {
-        removedAt: new Date(),
-        reason: 'manual_removal',
-      },
-    })
+    // End session with removal reason
+    await SessionService.endSession(sessionData.id || '', 'manual_removal')
 
     console.log(`Session removed for user: ${sessionData.user_id}`)
   }
 
   /**
    * Handle session.revoked webhook event
-   * Logs session revocation for security tracking
+   * Ends session and logs revocation for security tracking
    */
   private static async handleSessionRevoked(
     event: WebhookEvent
   ): Promise<void> {
     const sessionData = event.data as ClerkSessionData
 
-    // Log session revocation
-    await (DatabaseService as ExtendedDatabaseService).logUserActivity({
-      userId: sessionData.user_id || '',
-      activity: 'session_revoked',
-      sessionId: sessionData.id || '',
-      metadata: {
-        revokedAt: new Date(),
-        reason: 'security_revocation',
-      },
-    })
+    // End session with revocation reason
+    await SessionService.endSession(sessionData.id || '', 'security_revocation')
 
     console.log(`Session revoked for user: ${sessionData.user_id}`)
   }
