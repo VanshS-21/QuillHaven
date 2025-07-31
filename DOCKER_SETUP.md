@@ -21,18 +21,21 @@ notepad .env.local
 ### 2. Run the Application
 
 #### Option A: Simple Docker Run
+
 ```powershell
 # Run the container
 docker run -p 3000:3000 --env-file .env.local quillhaven
 ```
 
 #### Option B: Use the PowerShell Script
+
 ```powershell
 # Make sure .env.docker has your credentials, then run:
 .\docker-run.ps1
 ```
 
 #### Option C: Development with Database
+
 ```powershell
 # Start full development environment with PostgreSQL
 .\docker-dev.ps1
@@ -83,6 +86,7 @@ NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL=/dashboard
 ## 🐛 Troubleshooting
 
 ### Clerk Middleware Error
+
 If you see "Clerk can't detect usage of clerkMiddleware()", it means:
 
 1. **Missing Environment Variables**: Make sure your Clerk keys are set
@@ -90,6 +94,7 @@ If you see "Clerk can't detect usage of clerkMiddleware()", it means:
 3. **Middleware Path**: The middleware.ts file should be in the root directory
 
 ### Database Connection Issues
+
 ```powershell
 # Start just the database
 docker-compose up db
@@ -99,6 +104,7 @@ docker-compose logs db
 ```
 
 ### Container Management
+
 ```powershell
 # View running containers
 docker ps
@@ -119,7 +125,7 @@ docker rm $(docker ps -aq)
 ## 📁 Docker Files Overview
 
 - `Dockerfile` - Production build configuration
-- `Dockerfile.dev` - Development build configuration  
+- `Dockerfile.dev` - Development build configuration
 - `docker-compose.yml` - Multi-service orchestration
 - `.dockerignore` - Files to exclude from Docker build
 - `docker-run.ps1` - PowerShell script for easy container management
@@ -144,6 +150,7 @@ docker rm $(docker ps -aq)
 ## 🔒 Security Features Included
 
 All the security features from Task 2.4 are included:
+
 - Two-factor authentication
 - Role-based access control
 - Session management
